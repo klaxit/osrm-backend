@@ -54,6 +54,7 @@ class BaseDataFacade
   public:
     using RTreeLeaf = extractor::EdgeBasedNodeSegment;
 
+<<<<<<< HEAD
     using NodeForwardRange =
         boost::iterator_range<extractor::SegmentDataView::SegmentNodeVector::const_iterator>;
     using NodeReverseRange = boost::reversed_range<const NodeForwardRange>;
@@ -69,6 +70,14 @@ class BaseDataFacade
     using DatasourceForwardRange =
         boost::iterator_range<extractor::SegmentDataView::SegmentDatasourceVector::const_iterator>;
     using DatasourceReverseRange = boost::reversed_range<const DatasourceForwardRange>;
+=======
+    template <typename T>
+    using RangeT = boost::any_range<T, boost::random_access_traversal_tag, const T, std::ptrdiff_t>;
+    using NodesIDRangeT = RangeT<NodeID>;
+    using WeightsRangeT = RangeT<SegmentWeight>;
+    using DurationsRangeT = RangeT<SegmentDuration>;
+    using DatasourceIDRangeT = RangeT<DatasourceID>;
+>>>>>>> Use ranges in datafacade instead of vectors
 
     BaseDataFacade() {}
     virtual ~BaseDataFacade() {}
@@ -84,8 +93,13 @@ class BaseDataFacade
 
     virtual ComponentID GetComponentID(const NodeID id) const = 0;
 
+<<<<<<< HEAD
     virtual NodeForwardRange GetUncompressedForwardGeometry(const EdgeID id) const = 0;
     virtual NodeReverseRange GetUncompressedReverseGeometry(const EdgeID id) const = 0;
+=======
+    virtual NodesIDRangeT GetUncompressedForwardGeometry(const EdgeID id) const = 0;
+    virtual NodesIDRangeT GetUncompressedReverseGeometry(const EdgeID id) const = 0;
+>>>>>>> Use ranges in datafacade instead of vectors
 
     virtual TurnPenalty GetWeightPenaltyForEdgeID(const unsigned id) const = 0;
 
@@ -93,6 +107,7 @@ class BaseDataFacade
 
     // Gets the weight values for each segment in an uncompressed geometry.
     // Should always be 1 shorter than GetUncompressedGeometry
+<<<<<<< HEAD
     virtual WeightForwardRange GetUncompressedForwardWeights(const EdgeID id) const = 0;
     virtual WeightReverseRange GetUncompressedReverseWeights(const EdgeID id) const = 0;
 
@@ -105,6 +120,20 @@ class BaseDataFacade
     // weights.  Will return an empty array when only the base profile is used.
     virtual DatasourceForwardRange GetUncompressedForwardDatasources(const EdgeID id) const = 0;
     virtual DatasourceReverseRange GetUncompressedReverseDatasources(const EdgeID id) const = 0;
+=======
+    virtual WeightsRangeT GetUncompressedForwardWeights(const EdgeID id) const = 0;
+    virtual WeightsRangeT GetUncompressedReverseWeights(const EdgeID id) const = 0;
+
+    // Gets the duration values for each segment in an uncompressed geometry.
+    // Should always be 1 shorter than GetUncompressedGeometry
+    virtual DurationsRangeT GetUncompressedForwardDurations(const EdgeID id) const = 0;
+    virtual DurationsRangeT GetUncompressedReverseDurations(const EdgeID id) const = 0;
+
+    // Returns the data source ids that were used to supply the edge
+    // weights.  Will return an empty array when only the base profile is used.
+    virtual DatasourceIDRangeT GetUncompressedForwardDatasources(const EdgeID id) const = 0;
+    virtual DatasourceIDRangeT GetUncompressedReverseDatasources(const EdgeID id) const = 0;
+>>>>>>> Use ranges in datafacade instead of vectors
 
     // Gets the name of a datasource
     virtual StringView GetDatasourceName(const DatasourceID id) const = 0;

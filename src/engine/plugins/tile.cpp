@@ -518,9 +518,16 @@ void encodeVectorTile(const DataFacadeBase &facade,
                                                edge.fwd_segment_position - 1];
 
                     const auto forward_datasource_idx =
+<<<<<<< HEAD
                         forward_datasource_range(edge.fwd_segment_position);
                     const auto reverse_datasource_idx = reverse_datasource_range(
                         reverse_datasource_range.size() - edge.fwd_segment_position - 1);
+=======
+                        forward_datasource_range[edge.fwd_segment_position];
+                    const auto reverse_datasource_idx =
+                        reverse_datasource_range[reverse_datasource_range.size() -
+                                                 edge.fwd_segment_position - 1];
+>>>>>>> Use ranges in datafacade instead of vectors
 
                     const auto component_id = facade.GetComponentID(edge.forward_segment_id.id);
                     const auto name_id = facade.GetNameIndex(edge.forward_segment_id.id);
@@ -924,6 +931,10 @@ void encodeVectorTile(const DataFacadeBase &facade,
             for (auto edgeNodeID : segregated_nodes)
             {
                 auto const geomIndex = facade.GetGeometryIndex(edgeNodeID);
+<<<<<<< HEAD
+=======
+                DataFacadeBase::NodesIDRangeT geometry;
+>>>>>>> Use ranges in datafacade instead of vectors
 
                 std::vector<util::Coordinate> points;
                 if (geomIndex.forward)

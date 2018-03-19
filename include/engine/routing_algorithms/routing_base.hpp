@@ -181,15 +181,16 @@ void annotatePath(const FacadeT &facade,
         BOOST_ASSERT(datasource_vector.size() > 0);
         BOOST_ASSERT(weight_vector.size() + 1 == id_vector.size());
         BOOST_ASSERT(duration_vector.size() + 1 == id_vector.size());
+
         const bool is_first_segment = unpacked_path.empty();
 
         const std::size_t start_index =
             (is_first_segment ? ((start_traversed_in_reverse)
-                                     ? weight_vector.size() -
+                                     ? weight_range.size() -
                                            phantom_node_pair.source_phantom.fwd_segment_position - 1
                                      : phantom_node_pair.source_phantom.fwd_segment_position)
                               : 0);
-        const std::size_t end_index = weight_vector.size();
+        const std::size_t end_index = weight_range.size();
 
         bool is_left_hand_driving = facade.IsLeftHandDriving(node_id);
 
@@ -245,10 +246,9 @@ void annotatePath(const FacadeT &facade,
         if (is_local_path)
         {
             start_index =
-                weight_vector.size() - phantom_node_pair.source_phantom.fwd_segment_position - 1;
+                weight_range.size() - phantom_node_pair.source_phantom.fwd_segment_position - 1;
         }
-        end_index =
-            weight_vector.size() - phantom_node_pair.target_phantom.fwd_segment_position - 1;
+        end_index = weight_range.size() - phantom_node_pair.target_phantom.fwd_segment_position - 1;
     }
     else
     {
@@ -274,7 +274,7 @@ void annotatePath(const FacadeT &facade,
         BOOST_ASSERT(facade.GetTravelMode(target_node_id) > 0);
         unpacked_path.push_back(
             PathData{target_node_id,
-                     id_vector[start_index < end_index ? segment_idx + 1 : segment_idx - 1],
+                     id_range[start_index < end_index ? segment_idx + 1 : segment_idx - 1],
                      facade.GetNameIndex(target_node_id),
                      facade.IsSegregated(target_node_id),
                      static_cast<EdgeWeight>(weight_vector[segment_idx]),
@@ -286,7 +286,7 @@ void annotatePath(const FacadeT &facade,
                      facade.GetTravelMode(target_node_id),
                      facade.GetClassData(target_node_id),
                      EMPTY_ENTRY_CLASS,
-                     datasource_vector[segment_idx],
+                     datasource_range[segment_idx],
                      guidance::TurnBearing(0),
                      guidance::TurnBearing(0),
                      is_target_left_hand_driving});
