@@ -186,11 +186,11 @@ void annotatePath(const FacadeT &facade,
 
         const std::size_t start_index =
             (is_first_segment ? ((start_traversed_in_reverse)
-                                     ? weight_range.size() -
+                                     ? weight_vector.size() -
                                            phantom_node_pair.source_phantom.fwd_segment_position - 1
                                      : phantom_node_pair.source_phantom.fwd_segment_position)
                               : 0);
-        const std::size_t end_index = weight_range.size();
+        const std::size_t end_index = weight_vector.size();
 
         bool is_left_hand_driving = facade.IsLeftHandDriving(node_id);
 
@@ -246,9 +246,9 @@ void annotatePath(const FacadeT &facade,
         if (is_local_path)
         {
             start_index =
-                weight_range.size() - phantom_node_pair.source_phantom.fwd_segment_position - 1;
+                weight_vector.size() - phantom_node_pair.source_phantom.fwd_segment_position - 1;
         }
-        end_index = weight_range.size() - phantom_node_pair.target_phantom.fwd_segment_position - 1;
+        end_index = weight_vector.size() - phantom_node_pair.target_phantom.fwd_segment_position - 1;
     }
     else
     {
@@ -274,7 +274,7 @@ void annotatePath(const FacadeT &facade,
         BOOST_ASSERT(facade.GetTravelMode(target_node_id) > 0);
         unpacked_path.push_back(
             PathData{target_node_id,
-                     id_range[start_index < end_index ? segment_idx + 1 : segment_idx - 1],
+                     id_vector[start_index < end_index ? segment_idx + 1 : segment_idx - 1],
                      facade.GetNameIndex(target_node_id),
                      facade.IsSegregated(target_node_id),
                      static_cast<EdgeWeight>(weight_vector[segment_idx]),
@@ -286,7 +286,7 @@ void annotatePath(const FacadeT &facade,
                      facade.GetTravelMode(target_node_id),
                      facade.GetClassData(target_node_id),
                      EMPTY_ENTRY_CLASS,
-                     datasource_range[segment_idx],
+                     datasource_vector[segment_idx],
                      guidance::TurnBearing(0),
                      guidance::TurnBearing(0),
                      is_target_left_hand_driving});
@@ -428,6 +428,47 @@ EdgeDuration computeEdgeDuration(const FacadeT &facade, NodeID node_id, NodeID t
     total_duration += turn_duration;
 
     return total_duration;
+}
+
+template <typename FacadeT>
+EdgeDistance computeEdgeDistance(const FacadeT &facade, NodeID node_id_1, NodeID node_id_2)
+{
+    (void)node_id_2;
+    const auto geometry_index = facade.GetGeometryIndex(node_id_1);
+
+    // datastructures to hold extracted data from geometry
+    EdgeDistance total_distance = 0.0;
+
+    if (geometry_index.forward)
+    {
+        auto geometry_range = facade.GetUncompressedForwardGeometry(geometry_index.id);
+        for (auto current = geometry_range.begin() + 1; current != geometry_range.end(); ++current)
+        {
+            auto prev = current - 1;
+
+            const auto coordinate_1 = facade.GetCoordinateOfNode(*prev);
+            const auto coordinate_2 = facade.GetCoordinateOfNode(*current);
+
+            total_distance +=
+                util::coordinate_calculation::haversineDistance(coordinate_1, coordinate_2);
+        }
+    }
+    else
+    {
+        auto geometry_range = facade.GetUncompressedReverseDurations(geometry_index.id);
+        for (auto current = geometry_range.begin() + 1; current != geometry_range.end(); ++current)
+        {
+            auto prev = current - 1;
+
+            const auto coordinate_1 = facade.GetCoordinateOfNode(*prev);
+            const auto coordinate_2 = facade.GetCoordinateOfNode(*current);
+
+            total_distance +=
+                util::coordinate_calculation::haversineDistance(coordinate_1, coordinate_2);
+        }
+    }
+
+    return total_distance;
 }
 
 } // namespace routing_algorithms

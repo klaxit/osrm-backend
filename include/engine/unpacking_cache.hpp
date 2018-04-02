@@ -15,6 +15,7 @@ typedef unsigned char ExcludeIndex;
 typedef unsigned Timestamp;
 typedef std::tuple<NodeID, NodeID, ExcludeIndex> Key;
 typedef std::size_t HashedKey;
+typedef std::pair<EdgeDuration, EdgeDistance> PathAnnotation;
 
 struct HashKey
 {
@@ -36,7 +37,7 @@ struct HashKey
 class UnpackingCache
 {
   private:
-    boost::compute::detail::lru_cache<HashedKey, EdgeDuration> m_cache;
+    boost::compute::detail::lru_cache<HashedKey, PathAnnotation> m_cache;
     unsigned m_current_data_timestamp = 0;
 
   public:
@@ -85,17 +86,17 @@ class UnpackingCache
         return m_cache.contains(hashed_edge);
     }
 
-    void AddEdge(Key edge, EdgeDuration duration)
+    void AddEdge(Key edge, PathAnnotation annotation)
     {
         HashedKey hashed_edge = HashKey{}(edge);
-        m_cache.insert(hashed_edge, duration);
+        m_cache.insert(hashed_edge, annotation);
     }
 
-    EdgeDuration GetDuration(Key edge)
+    PathAnnotation GetAnnotation(Key edge)
     {
         HashedKey hashed_edge = HashKey{}(edge);
-        boost::optional<EdgeDuration> duration = m_cache.get(hashed_edge);
-        return duration ? *duration : MAXIMAL_EDGE_DURATION;
+        boost::optional<PathAnnotation> annotation = m_cache.get(hashed_edge);
+        return annotation ? *annotation : std::make_pair(MAXIMAL_EDGE_DURATION, MAXIMAL_EDGE_DISTANCE);
     }
 };
 } // engine

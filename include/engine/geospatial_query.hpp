@@ -448,6 +448,9 @@ template <typename RTreeT, typename DataFacadeT> class GeospatialQuery
         const auto forward_durations = datafacade.GetUncompressedForwardDurations(geometry_id);
         const auto reverse_durations = datafacade.GetUncompressedReverseDurations(geometry_id);
 
+        const auto forward_geometry = datafacade.GetUncompressedForwardGeometry(geometry_id);
+        const auto reverse_geometry = datafacade.GetUncompressedReverseGeometry(geometry_id);
+
         const auto forward_weight_offset =
             std::accumulate(forward_weights.begin(),
                             forward_weights.begin() + data.fwd_segment_position,
@@ -458,8 +461,22 @@ template <typename RTreeT, typename DataFacadeT> class GeospatialQuery
                             forward_durations.begin() + data.fwd_segment_position,
                             EdgeDuration{0});
 
+        EdgeDistance forward_distance_offset = 0;
+        for (auto current = forward_geometry.begin() + 1;
+             current != forward_geometry.begin() + data.fwd_segment_position + 1;
+             ++current)
+        {
+            auto prev = current - 1;
+
+            forward_distance_offset += util::coordinate_calculation::haversineDistance(
+                datafacade.GetCoordinateOfNode(*prev), datafacade.GetCoordinateOfNode(*current));
+        }
+
         EdgeWeight forward_weight = forward_weights[data.fwd_segment_position];
         EdgeDuration forward_duration = forward_durations[data.fwd_segment_position];
+        EdgeDistance forward_distance = util::coordinate_calculation::haversineDistance(
+            datafacade.GetCoordinateOfNode(forward_geometry[data.fwd_segment_position]),
+            point_on_segment);
 
         BOOST_ASSERT(data.fwd_segment_position <
                      std::distance(forward_durations.begin(), forward_durations.end()));
@@ -474,10 +491,25 @@ template <typename RTreeT, typename DataFacadeT> class GeospatialQuery
                             reverse_durations.end() - data.fwd_segment_position - 1,
                             EdgeDuration{0});
 
+        EdgeDistance reverse_distance_offset = 0;
+        for (auto current = reverse_geometry.begin() + 1;
+             current != reverse_geometry.begin() + data.fwd_segment_position + 1;
+             ++current)
+        {
+            auto prev = current - 1;
+
+            reverse_distance_offset += util::coordinate_calculation::haversineDistance(
+                datafacade.GetCoordinateOfNode(*prev), datafacade.GetCoordinateOfNode(*current));
+        }
+
         EdgeWeight reverse_weight =
             reverse_weights[reverse_weights.size() - data.fwd_segment_position - 1];
         EdgeDuration reverse_duration =
             reverse_durations[reverse_durations.size() - data.fwd_segment_position - 1];
+        EdgeDistance reverse_distance = util::coordinate_calculation::haversineDistance(
+            datafacade.GetCoordinateOfNode(reverse_geometry[reverse_geometry.size() -
+                                                                  data.fwd_segment_position - 1]),
+            point_on_segment);
 
         ratio = std::min(1.0, std::max(0.0, ratio));
         if (data.forward_segment_id.id != SPECIAL_SEGMENTID)
@@ -511,6 +543,10 @@ template <typename RTreeT, typename DataFacadeT> class GeospatialQuery
                         reverse_weight,
                         forward_weight_offset,
                         reverse_weight_offset,
+                        forward_distance,
+                        reverse_distance,
+                        forward_distance_offset,
+                        reverse_distance_offset,
                         forward_duration,
                         reverse_duration,
                         forward_duration_offset,

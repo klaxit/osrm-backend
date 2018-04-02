@@ -220,13 +220,13 @@ std::vector<EdgeDuration> manyToManySearch(SearchEngineData<ch::Algorithm> &engi
 
     std::vector<EdgeWeight> weights_table(number_of_entries, INVALID_EDGE_WEIGHT);
     std::vector<EdgeDuration> durations_table(number_of_entries, MAXIMAL_EDGE_DURATION);
+    std::vector<EdgeDistance> distance_table(number_of_entries, MAXIMAL_EDGE_DISTANCE);
     std::vector<NodeID> middle_nodes_table(number_of_entries, SPECIAL_NODEID);
 
     std::vector<NodeBucket> search_space_with_buckets;
     std::vector<NodeID> packed_leg;
 
-    engine_working_data.InitializeOrClearUnpackingCacheThreadLocalStorage(
-        facade.GetTimestamp()); // always pass in the timestamp and clear if it's different
+    engine_working_data.InitializeOrClearUnpackingCacheThreadLocalStorage(facade.GetTimestamp());
 
     // Populate buckets with paths from all accessible nodes to destinations via backward searches
     for (std::uint32_t column_idx = 0; column_idx < target_indices.size(); ++column_idx)
@@ -281,6 +281,7 @@ std::vector<EdgeDuration> manyToManySearch(SearchEngineData<ch::Algorithm> &engi
             if (source_index == target_index)
             {
                 durations_table[row_idx * number_of_targets + column_idx] = 0;
+                distance_table[row_idx * number_of_targets + column_idx] = 0.0;
                 continue;
             }
 
@@ -289,7 +290,10 @@ std::vector<EdgeDuration> manyToManySearch(SearchEngineData<ch::Algorithm> &engi
 
             if (middle_node_id == SPECIAL_NODEID) // takes care of one-ways
             {
-                durations_table[row_idx * number_of_targets + column_idx] = MAXIMAL_EDGE_DURATION;
+                durations_table[row_idx * number_of_targets + column_idx] =
+                    MAXIMAL_EDGE_DURATION; // should this be invalid edge duration? what is the
+                                           // difference between maximal and invalid?
+                distance_table[row_idx * number_of_targets + column_idx] = MAXIMAL_EDGE_DISTANCE;
                 continue;
             }
 
@@ -317,11 +321,14 @@ std::vector<EdgeDuration> manyToManySearch(SearchEngineData<ch::Algorithm> &engi
             }
             if (!packed_leg.empty())
             {
-                durations_table[row_idx * number_of_targets + column_idx] =
+                auto annotation =
                     ch::calculateEBGNodeAnnotations(facade,
                                                     packed_leg.begin(),
                                                     packed_leg.end(),
                                                     *engine_working_data.unpacking_cache.get());
+
+                durations_table[row_idx * number_of_targets + column_idx] = annotation.first;
+                distance_table[row_idx * number_of_targets + column_idx] = annotation.second;
 
                 // check the direction of travel to figure out how to calculate the offset to/from
                 // the source/target
@@ -345,9 +352,32 @@ std::vector<EdgeDuration> manyToManySearch(SearchEngineData<ch::Algorithm> &engi
                     EdgeDuration offset = target_phantom.GetReverseDuration();
                     durations_table[row_idx * number_of_targets + column_idx] += offset;
                 }
+
+                // SAME THING BUT FOR DISTANCE
+                if (source_phantom.forward_segment_id.id == packed_leg.front())
+                { // direction of travel is forward
+                    EdgeDistance offset = source_phantom.GetForwardDistance();
+                    distance_table[row_idx * number_of_targets + column_idx] -= offset;
+                }
+                if (source_phantom.reverse_segment_id.id == packed_leg.front())
+                {
+                    EdgeDistance offset = source_phantom.GetReverseDistance();
+                    distance_table[row_idx * number_of_targets + column_idx] -= offset;
+                }
+                if (target_phantom.forward_segment_id.id == packed_leg.back())
+                { // direction of travel is forward
+                    EdgeDistance offset = target_phantom.GetForwardDistance();
+                    distance_table[row_idx * number_of_targets + column_idx] += offset;
+                }
+                if (target_phantom.reverse_segment_id.id == packed_leg.back())
+                {
+                    EdgeDistance offset = target_phantom.GetReverseDistance();
+                    distance_table[row_idx * number_of_targets + column_idx] += offset;
+                }
             }
             else
             {
+                // OFFSET DURATIONS
                 if (target_phantom.GetForwardDuration() > source_phantom.GetForwardDuration())
                 {
                     EdgeDuration offset =
@@ -360,10 +390,28 @@ std::vector<EdgeDuration> manyToManySearch(SearchEngineData<ch::Algorithm> &engi
                         target_phantom.GetReverseDuration() - source_phantom.GetReverseDuration();
                     durations_table[row_idx * number_of_targets + column_idx] += offset;
                 }
+
+                // SAME EXACT CALCULATIONS FOR DISTANCE
+                if (target_phantom.GetForwardDistance() > source_phantom.GetForwardDistance())
+                {
+                    EdgeDistance offset =
+                        target_phantom.GetForwardDistance() - source_phantom.GetForwardDistance();
+                    distance_table[row_idx * number_of_targets + column_idx] += offset;
+                }
+                else
+                {
+                    EdgeDistance offset =
+                        target_phantom.GetReverseDistance() - source_phantom.GetReverseDistance();
+                    distance_table[row_idx * number_of_targets + column_idx] += offset;
+                }
             }
             packed_leg.clear();
         }
     }
+    std::cout << "distance table: ";
+    for (auto it = distance_table.begin(); it != distance_table.end(); it++)
+        std::cout << *it << ", ";
+    std::cout << std::endl;
 
     return durations_table;
 }
