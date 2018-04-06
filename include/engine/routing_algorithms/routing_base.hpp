@@ -439,33 +439,16 @@ EdgeDistance computeEdgeDistance(const FacadeT &facade, NodeID node_id_1, NodeID
     // datastructures to hold extracted data from geometry
     EdgeDistance total_distance = 0.0;
 
-    if (geometry_index.forward)
+    auto geometry_range = facade.GetUncompressedForwardGeometry(geometry_index.id);
+    for (auto current = geometry_range.begin() + 1; current != geometry_range.end(); ++current)
     {
-        auto geometry_range = facade.GetUncompressedForwardGeometry(geometry_index.id);
-        for (auto current = geometry_range.begin() + 1; current != geometry_range.end(); ++current)
-        {
-            auto prev = current - 1;
+        auto prev = current - 1;
 
-            const auto coordinate_1 = facade.GetCoordinateOfNode(*prev);
-            const auto coordinate_2 = facade.GetCoordinateOfNode(*current);
+        const auto coordinate_1 = facade.GetCoordinateOfNode(*prev);
+        const auto coordinate_2 = facade.GetCoordinateOfNode(*current);
 
-            total_distance +=
-                util::coordinate_calculation::haversineDistance(coordinate_1, coordinate_2);
-        }
-    }
-    else
-    {
-        auto geometry_range = facade.GetUncompressedReverseDurations(geometry_index.id);
-        for (auto current = geometry_range.begin() + 1; current != geometry_range.end(); ++current)
-        {
-            auto prev = current - 1;
-
-            const auto coordinate_1 = facade.GetCoordinateOfNode(*prev);
-            const auto coordinate_2 = facade.GetCoordinateOfNode(*current);
-
-            total_distance +=
-                util::coordinate_calculation::haversineDistance(coordinate_1, coordinate_2);
-        }
+        total_distance +=
+            util::coordinate_calculation::haversineDistance(coordinate_1, coordinate_2);
     }
 
     return total_distance;

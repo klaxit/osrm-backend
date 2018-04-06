@@ -8,7 +8,7 @@ Feature: Basic Distance Matrix
         Given the profile "testbot"
         And the partition extra arguments "--small-component-size 1 --max-cell-sizes 2,4,8,16"
 
-    Scenario: Testbot - Travel time matrix of minimal network
+    Scenario: Testbot - Travel time matrix of minimal network only
         Given the node map
             """
             a b

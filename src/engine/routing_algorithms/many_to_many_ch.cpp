@@ -330,6 +330,11 @@ std::vector<EdgeDuration> manyToManySearch(SearchEngineData<ch::Algorithm> &engi
                 durations_table[row_idx * number_of_targets + column_idx] = annotation.first;
                 distance_table[row_idx * number_of_targets + column_idx] = annotation.second;
 
+                std::cout << "distance table without offsets: ";
+                for (auto it = distance_table.begin(); it != distance_table.end(); it++)
+                    std::cout << *it << ", ";
+                std::cout << std::endl;
+
                 // check the direction of travel to figure out how to calculate the offset to/from
                 // the source/target
                 if (source_phantom.forward_segment_id.id == packed_leg.front())
@@ -408,7 +413,7 @@ std::vector<EdgeDuration> manyToManySearch(SearchEngineData<ch::Algorithm> &engi
             packed_leg.clear();
         }
     }
-    std::cout << "distance table: ";
+    std::cout << "distance table after offsets: ";
     for (auto it = distance_table.begin(); it != distance_table.end(); it++)
         std::cout << *it << ", ";
     std::cout << std::endl;

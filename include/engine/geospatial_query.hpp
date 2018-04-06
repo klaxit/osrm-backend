@@ -493,7 +493,7 @@ template <typename RTreeT, typename DataFacadeT> class GeospatialQuery
 
         EdgeDistance reverse_distance_offset = 0;
         for (auto current = reverse_geometry.begin() + 1;
-             current != reverse_geometry.begin() + data.fwd_segment_position + 1;
+             current != reverse_geometry.end() - data.fwd_segment_position;
              ++current)
         {
             auto prev = current - 1;

@@ -96,7 +96,8 @@ class UnpackingCache
     {
         HashedKey hashed_edge = HashKey{}(edge);
         boost::optional<PathAnnotation> annotation = m_cache.get(hashed_edge);
-        return annotation ? *annotation : std::make_pair(MAXIMAL_EDGE_DURATION, MAXIMAL_EDGE_DISTANCE);
+        return annotation ? *annotation
+                          : std::make_pair(MAXIMAL_EDGE_DURATION, MAXIMAL_EDGE_DISTANCE);
     }
 };
 } // engine
