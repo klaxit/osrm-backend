@@ -37,8 +37,8 @@ Feature: Basic Distance Matrix
             | nodes | highway  | toll | #                                        |
             | ab    | motorway |      | not drivable for exclude=motorway        |
             | cd    | primary  |      | always drivable                          |
-            | ac    | highway  | yes  | not drivable for exclude=motorway exclude=toll and exclude=motorway,toll |
-            | bd    | highway  | yes  | not drivable for exclude=motorway exclude=toll |
+            | ac    | highway  | yes  | not drivable for exclude=toll and exclude=motorway,toll |
+            | bd    | highway  | yes  | not drivable for exclude=toll |
 
         When I request a travel time matrix I should get
             |   | a  | b  | c  | d  |
@@ -61,8 +61,8 @@ Feature: Basic Distance Matrix
             | nodes | highway  | toll | #                                        |
             | ab    | motorway |      | not drivable for exclude=motorway        |
             | cd    | primary  |      | always drivable                          |
-            | ac    | highway  | yes  | not drivable for exclude=motorway exclude=toll and exclude=motorway,toll |
-            | bd    | highway  | yes  | not drivable for exclude=motorway exclude=toll |
+            | ac    | highway  | yes  | not drivable for exclude=toll and exclude=motorway,toll |
+            | bd    | highway  | yes  | not drivable for exclude=toll |
 
 
         When I request a travel time matrix I should get
@@ -86,8 +86,8 @@ Feature: Basic Distance Matrix
             | nodes | highway  | toll | #                                        |
             | ab    | motorway |      | not drivable for exclude=motorway        |
             | cd    | primary  |      | always drivable                          |
-            | ac    | highway  | yes  | not drivable for exclude=motorway exclude=toll and exclude=motorway,toll |
-            | bd    | highway  | yes  | not drivable for exclude=motorway exclude=toll |
+            | ac    | highway  | yes  | not drivable for exclude=toll and exclude=motorway,toll |
+            | bd    | highway  | yes  | not drivable for exclude=toll |
 
         When I request a travel time matrix I should get
             |   | a  | b  | c  | d  |

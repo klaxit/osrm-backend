@@ -207,14 +207,16 @@ void relaxOutgoingEdges(const DataFacade<mld::Algorithm> &facade,
 // Unidirectional multi-layer Dijkstra search for 1-to-N and N-to-1 matrices
 //
 template <bool DIRECTION>
-std::vector<EdgeDuration> oneToManySearch(SearchEngineData<Algorithm> &engine_working_data,
-                                          const DataFacade<Algorithm> &facade,
-                                          const std::vector<PhantomNode> &phantom_nodes,
-                                          std::size_t phantom_index,
-                                          const std::vector<std::size_t> &phantom_indices)
+std::pair<std::vector<EdgeDuration>, std::vector<EdgeDistance>>
+oneToManySearch(SearchEngineData<Algorithm> &engine_working_data,
+                const DataFacade<Algorithm> &facade,
+                const std::vector<PhantomNode> &phantom_nodes,
+                std::size_t phantom_index,
+                const std::vector<std::size_t> &phantom_indices)
 {
     std::vector<EdgeWeight> weights(phantom_indices.size(), INVALID_EDGE_WEIGHT);
     std::vector<EdgeDuration> durations(phantom_indices.size(), MAXIMAL_EDGE_DURATION);
+    std::vector<EdgeDistance> distances(phantom_indices.size(), MAXIMAL_EDGE_DISTANCE);
 
     // Collect destination (source) nodes into a map
     std::unordered_multimap<NodeID, std::tuple<std::size_t, EdgeWeight, EdgeDuration>>
@@ -363,7 +365,7 @@ std::vector<EdgeDuration> oneToManySearch(SearchEngineData<Algorithm> &engine_wo
                                       phantom_indices);
     }
 
-    return durations;
+    return std::make_pair(durations, distances);
 }
 
 //
@@ -445,11 +447,12 @@ void backwardRoutingStep(const DataFacade<Algorithm> &facade,
 }
 
 template <bool DIRECTION>
-std::vector<EdgeDuration> manyToManySearch(SearchEngineData<Algorithm> &engine_working_data,
-                                           const DataFacade<Algorithm> &facade,
-                                           const std::vector<PhantomNode> &phantom_nodes,
-                                           const std::vector<std::size_t> &source_indices,
-                                           const std::vector<std::size_t> &target_indices)
+std::pair<std::vector<EdgeDuration>, std::vector<EdgeDistance>>
+manyToManySearch(SearchEngineData<Algorithm> &engine_working_data,
+                 const DataFacade<Algorithm> &facade,
+                 const std::vector<PhantomNode> &phantom_nodes,
+                 const std::vector<std::size_t> &source_indices,
+                 const std::vector<std::size_t> &target_indices)
 {
     const auto number_of_sources = source_indices.size();
     const auto number_of_targets = target_indices.size();
@@ -457,6 +460,7 @@ std::vector<EdgeDuration> manyToManySearch(SearchEngineData<Algorithm> &engine_w
 
     std::vector<EdgeWeight> weights_table(number_of_entries, INVALID_EDGE_WEIGHT);
     std::vector<EdgeDuration> durations_table(number_of_entries, MAXIMAL_EDGE_DURATION);
+    std::vector<EdgeDistance> distances_table(number_of_entries, MAXIMAL_EDGE_DURATION);
 
     std::vector<NodeBucket> search_space_with_buckets;
 
@@ -517,7 +521,7 @@ std::vector<EdgeDuration> manyToManySearch(SearchEngineData<Algorithm> &engine_w
         }
     }
 
-    return durations_table;
+    return std::make_pair(durations_table, distances_table);
 }
 
 } // namespace mld
@@ -535,11 +539,12 @@ std::vector<EdgeDuration> manyToManySearch(SearchEngineData<Algorithm> &engine_w
 //   then search is performed on a reversed graph with phantom nodes with flipped roles and
 //   returning a transposed matrix.
 template <>
-std::vector<EdgeDuration> manyToManySearch(SearchEngineData<mld::Algorithm> &engine_working_data,
-                                           const DataFacade<mld::Algorithm> &facade,
-                                           const std::vector<PhantomNode> &phantom_nodes,
-                                           const std::vector<std::size_t> &source_indices,
-                                           const std::vector<std::size_t> &target_indices)
+std::pair<std::vector<EdgeDuration>, std::vector<EdgeDistance>>
+manyToManySearch(SearchEngineData<mld::Algorithm> &engine_working_data,
+                 const DataFacade<mld::Algorithm> &facade,
+                 const std::vector<PhantomNode> &phantom_nodes,
+                 const std::vector<std::size_t> &source_indices,
+                 const std::vector<std::size_t> &target_indices)
 {
     if (source_indices.size() == 1)
     { // TODO: check if target_indices.size() == 1 and do a bi-directional search
