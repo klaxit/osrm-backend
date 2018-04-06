@@ -142,12 +142,12 @@ class TableAPI final : public BaseAPI
             std::transform(row_begin_iterator,
                            row_end_iterator,
                            json_row.values.begin(),
-                           [](const EdgeWeight duration) {
-                               if (duration == MAXIMAL_EDGE_DURATION)
+                           [](const EdgeDistance distance) {
+                               if (distance == MAXIMAL_EDGE_DISTANCE)
                                {
                                    return util::json::Value(util::json::Null());
                                }
-                               return util::json::Value(util::json::Number(duration / 10.));
+                               return util::json::Value(util::json::Number(distance / 10.));
                            });
             json_table.values.push_back(std::move(json_row));
         }

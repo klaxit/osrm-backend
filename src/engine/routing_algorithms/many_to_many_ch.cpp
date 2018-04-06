@@ -208,12 +208,11 @@ retrievePackedPathFromSearchSpace(NodeID middle_node_id,
 }
 
 template <>
-std::pair<std::vector<EdgeDuration>, std::vector<EdgeDistance>>
-manyToManySearch(SearchEngineData<ch::Algorithm> &engine_working_data,
-                 const DataFacade<ch::Algorithm> &facade,
-                 const std::vector<PhantomNode> &phantom_nodes,
-                 const std::vector<std::size_t> &source_indices,
-                 const std::vector<std::size_t> &target_indices)
+std::pair<std::vector<EdgeDuration>, std::vector<EdgeDistance>> manyToManySearch(SearchEngineData<ch::Algorithm> &engine_working_data,
+                                           const DataFacade<ch::Algorithm> &facade,
+                                           const std::vector<PhantomNode> &phantom_nodes,
+                                           const std::vector<std::size_t> &source_indices,
+                                           const std::vector<std::size_t> &target_indices)
 {
     const auto number_of_sources = source_indices.size();
     const auto number_of_targets = target_indices.size();
