@@ -331,9 +331,7 @@ std::vector<EdgeDuration> manyToManySearch(SearchEngineData<ch::Algorithm> &engi
                 distance_table[row_idx * number_of_targets + column_idx] = annotation.second;
 
                 std::cout << "distance table without offsets: ";
-                for (auto it = distance_table.begin(); it != distance_table.end(); it++)
-                    std::cout << *it << ", ";
-                std::cout << std::endl;
+                for (auto it = distance_table.begin(); it != distance_table.end(); it++) std::cout << *it << ", "; std::cout << std::endl;
 
                 // check the direction of travel to figure out how to calculate the offset to/from
                 // the source/target
@@ -363,21 +361,29 @@ std::vector<EdgeDuration> manyToManySearch(SearchEngineData<ch::Algorithm> &engi
                 { // direction of travel is forward
                     EdgeDistance offset = source_phantom.GetForwardDistance();
                     distance_table[row_idx * number_of_targets + column_idx] -= offset;
+                std::cout << "1: ";
+                for (auto it = distance_table.begin(); it != distance_table.end(); it++) std::cout << *it << ", "; std::cout << std::endl;
                 }
                 if (source_phantom.reverse_segment_id.id == packed_leg.front())
                 {
                     EdgeDistance offset = source_phantom.GetReverseDistance();
                     distance_table[row_idx * number_of_targets + column_idx] -= offset;
+                std::cout << "2: ";
+                for (auto it = distance_table.begin(); it != distance_table.end(); it++) std::cout << *it << ", "; std::cout << std::endl;
                 }
                 if (target_phantom.forward_segment_id.id == packed_leg.back())
                 { // direction of travel is forward
                     EdgeDistance offset = target_phantom.GetForwardDistance();
                     distance_table[row_idx * number_of_targets + column_idx] += offset;
+                std::cout << "3: ";
+                for (auto it = distance_table.begin(); it != distance_table.end(); it++) std::cout << *it << ", "; std::cout << std::endl;
                 }
                 if (target_phantom.reverse_segment_id.id == packed_leg.back())
                 {
                     EdgeDistance offset = target_phantom.GetReverseDistance();
                     distance_table[row_idx * number_of_targets + column_idx] += offset;
+                std::cout << "4: ";
+                for (auto it = distance_table.begin(); it != distance_table.end(); it++) std::cout << *it << ", "; std::cout << std::endl;
                 }
             }
             else
@@ -402,12 +408,16 @@ std::vector<EdgeDuration> manyToManySearch(SearchEngineData<ch::Algorithm> &engi
                     EdgeDistance offset =
                         target_phantom.GetForwardDistance() - source_phantom.GetForwardDistance();
                     distance_table[row_idx * number_of_targets + column_idx] += offset;
+                std::cout << "5: ";
+                for (auto it = distance_table.begin(); it != distance_table.end(); it++) std::cout << *it << ", "; std::cout << std::endl;
                 }
                 else
                 {
                     EdgeDistance offset =
                         target_phantom.GetReverseDistance() - source_phantom.GetReverseDistance();
                     distance_table[row_idx * number_of_targets + column_idx] += offset;
+                std::cout << "6: ";
+                for (auto it = distance_table.begin(); it != distance_table.end(); it++) std::cout << *it << ", "; std::cout << std::endl;
                 }
             }
             packed_leg.clear();
