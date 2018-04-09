@@ -58,7 +58,7 @@ module.exports = function () {
 
                 var testRow = (row, ri, cb) => {
                     for (var k in result[ri]) {
-                        if (this.FuzzyMatch.match(result[ri][k], row[k])) {
+                        if (this.FuzzyMatch.match(result[ri][k], row[k])) { // for floating points, we should do an epsilon check which is find the difference and check > or < 0.000001 -- do this in fuzzy match
                             result[ri][k] = row[k];
                         } else if (row[k] === '' && result[ri][k] === NO_ROUTE) {
                             result[ri][k] = '';

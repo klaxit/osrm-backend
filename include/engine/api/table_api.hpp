@@ -147,7 +147,7 @@ class TableAPI final : public BaseAPI
                                {
                                    return util::json::Value(util::json::Null());
                                }
-                               return util::json::Value(util::json::Number(distance / 10.));
+                               return util::json::Value(util::json::Number(std::round(distance * 100)/100)); // look up docs for std::round -- should take care of flip flopping cuke tests
                            });
             json_table.values.push_back(std::move(json_row));
         }
