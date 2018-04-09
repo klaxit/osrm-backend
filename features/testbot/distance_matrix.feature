@@ -8,7 +8,7 @@ Feature: Basic Distance Matrix
         Given the profile "testbot"
         And the partition extra arguments "--small-component-size 1 --max-cell-sizes 2,4,8,16"
 
-    Scenario: Testbot - Travel time matrix of minimal network only
+    Scenario: Testbot - Travel time matrix of minimal network
         Given the node map
             """
             a b
@@ -25,8 +25,8 @@ Feature: Basic Distance Matrix
 
         When I request a travel distance matrix I should get
             |   | a   | b   |
-            | a | 0   | 9.9 |
-            | b | 9.9 | 0   |
+            | a | 0   | 9.997721 |
+            | b | 9.997721 | 0   |
 
     Scenario: Testbot - Travel time matrix of minimal network with excludes
         Given the query options
@@ -85,11 +85,12 @@ Feature: Basic Distance Matrix
             | d | 25 | 15 | 10 | 0  |
 
         When I request a travel distance matrix I should get
-            |   |   a  |  b   |  c   |   d  |
-            | a |   0  | 39.9 | 9.9  | 29.9 |
-            | b | 39.9 |  0   | 29.9 | 9.9  |
-            | c |  10  | 29.9 | 0    | 19.9 |
-            | d | 29.9 | 9.9  | 19.9 |   0  |
+            |   |     a      |     b       |     c      |     d     |
+            | a |     0      | 39.995459   | 9.999245   | 29.996216 |
+            | b |  39.995459 |  0          | 29.994693  | 9.999245  |
+            | c |  10.000765 |  29.996213  | 0          | 19.99697  |
+            | d |  29.996216 |  9.999245   | 19.995448  |     0     |
+
 
     Scenario: Testbot - Travel time matrix of minimal network with excludes combination
         Given the query options
@@ -141,9 +142,20 @@ Feature: Basic Distance Matrix
             | c | 30 | 20 | 0  | 30 |
             | d | 60 | 50 | 30 | 0  |
 
+        When I request a travel distance matrix I should get
+     |   |    a      |     b     |     c     |     d     |
+     | a |    0      | 9.997721  | 19.995442 | 29.993164 |
+     | b |    0      |     0     | 9.997721  | 19.995442 |
+     | c | 9.997721  | 9.997721  |     0     | 9.997721  |
+     | d | 29.993164 | 29.993164 | 19.995442 |     0     |
+
         When I request a travel time matrix I should get
             |   | a  | b  | c  | d  |
             | a | 0  | 10 | 30 | 60 |
+
+        When I request a travel distance matrix I should get
+            |   | a | b        | c         | d         |
+            | a | 0 | 9.997721 | 19.995442 | 29.993164 |
 
         When I request a travel time matrix I should get
             |   |  a |
@@ -153,11 +165,11 @@ Feature: Basic Distance Matrix
             | d | 60 |
 
         When I request a travel distance matrix I should get
-            |   |  a |
-            | a |  0 |
-            | b | 10 |
-            | c | 30 |
-            | d | 60 |
+            |   |     a     |
+            | a |     0     |
+            | b |     0     |
+            | c | 9.997721  |
+            | d | 29.993164 |
 
     Scenario: Testbot - Travel time matrix with fuzzy match
         Given the node map
@@ -175,9 +187,9 @@ Feature: Basic Distance Matrix
             | b | 10 | 0  |
 
         When I request a travel distance matrix I should get
-            |   | a  | b  |
-            | a | 0  | 10 |
-            | b | 10 | 0  |
+            |   | a        | b        |
+            | a | 0        | 9.997721 |
+            | b | 9.997721 | 0        |
 
     Scenario: Testbot - Travel time matrix of small grid
         Given the node map
@@ -202,11 +214,12 @@ Feature: Basic Distance Matrix
             | f | 30 | 20 | 10 | 0  |
 
         When I request a travel distance matrix I should get
-            |   | a  | b  | e  | f  |
-            | a | 0  | 10 | 20 | 30 |
-            | b | 10 | 0  | 10 | 20 |
-            | e | 20 | 10 | 0  | 10 |
-            | f | 30 | 20 | 10 | 0  |
+            |   |     a      | b         |     e      |     f      |
+            | a |     0      | 9.997721  |  9.999248  |  29.996216 |
+            | b |  9.997721  | 0         |  0.001524  |  19.998492 |
+            | e |  9.999245  | 0.001521  |  0         |  19.99697  |
+            | f |  29.994696 | 19.995442 |  19.995448 |     0      |
+
 
     Scenario: Testbot - Travel time matrix of network with unroutable parts
         Given the node map
@@ -224,9 +237,9 @@ Feature: Basic Distance Matrix
             | b |   | 0  |
 
         When I request a travel distance matrix I should get
-            |   | a | b  |
-            | a | 0 | 10 |
-            | b |   | 0  |
+            |   | a | b        |
+            | a | 0 | 9.997721 |
+            | b |   | 0        |
 
     Scenario: Testbot - Travel time matrix of network with oneways
         Given the node map
@@ -249,11 +262,11 @@ Feature: Basic Distance Matrix
             | e | 30 | 40  | 10 | 0  |
 
         When I request a travel distance matrix I should get
-            |   | x  | y   | d  | e  |
-            | x | 0  | 30  | 40 | 30 |
-            | y | 50 | 0   | 30 | 20 |
-            | d | 20 | 30  | 0  | 30 |
-            | e | 30 | 40  | 10 | 0  |
+            |   |     x     |     y     |     d    |     e     |
+            | x |     0     | 29.993164 | 39.99241 | 29.994687 |
+            | y | 49.991653 |     0     | 29.99469 | 19.996967 |
+            | d | 19.996967 | 29.994687 |     0    | 29.99621  |
+            | e | 29.99469  | 39.99241  | 9.997724 |     0     |
 
     Scenario: Testbot - Rectangular travel time matrix
         Given the node map
