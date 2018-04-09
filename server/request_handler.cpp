@@ -34,6 +34,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "../util/json_renderer.hpp"
 #include "../util/simple_logger.hpp"
 #include "../util/string_util.hpp"
+#include "../util/timing_util.hpp"
 #include "../util/xml_renderer.hpp"
 #include "../typedefs.h"
 
@@ -54,39 +55,13 @@ void RequestHandler::handle_request(const http::request &current_request,
 {
     osrm::json::Object json_result;
 
+    TIMER_START(request_duration);
+
     // parse command
     try
     {
         std::string request_string;
         URIDecode(current_request.uri, request_string);
-
-        // deactivated as GCC apparently does not implement that, not even in 4.9
-        // std::time_t t = std::time(nullptr);
-        // SimpleLogger().Write() << std::put_time(std::localtime(&t), "%m-%d-%Y %H:%M:%S") <<
-        //     " " << current_request.endpoint.to_string() << " " <<
-        //     current_request.referrer << ( 0 == current_request.referrer.length() ? "- " :" ") <<
-        //     current_request.agent << ( 0 == current_request.agent.length() ? "- " :" ") <<
-        //     request;
-
-        time_t ltime;
-        struct tm *time_stamp;
-
-        ltime = time(nullptr);
-        time_stamp = localtime(&ltime);
-
-        // log timestamp
-        SimpleLogger().Write() << (time_stamp->tm_mday < 10 ? "0" : "") << time_stamp->tm_mday
-                               << "-" << (time_stamp->tm_mon + 1 < 10 ? "0" : "")
-                               << (time_stamp->tm_mon + 1) << "-" << 1900 + time_stamp->tm_year
-                               << " " << (time_stamp->tm_hour < 10 ? "0" : "")
-                               << time_stamp->tm_hour << ":" << (time_stamp->tm_min < 10 ? "0" : "")
-                               << time_stamp->tm_min << ":" << (time_stamp->tm_sec < 10 ? "0" : "")
-                               << time_stamp->tm_sec << " " << current_request.endpoint.to_string()
-                               << " " << current_request.referrer
-                               << (0 == current_request.referrer.length() ? "- " : " ")
-                               << current_request.agent
-                               << (0 == current_request.agent.length() ? "- " : " ")
-                               << request_string;
 
         RouteParameters route_parameters;
         APIGrammarParser api_parser(&route_parameters);
@@ -165,6 +140,37 @@ void RequestHandler::handle_request(const http::request &current_request,
         { // append brace to jsonp response
             current_reply.content.push_back(')');
         }
+
+        if (!std::getenv("DISABLE_ACCESS_LOGGING"))
+        {
+            // deactivated as GCC apparently does not implement that, not even in 4.9
+            // std::time_t t = std::time(nullptr);
+            // SimpleLogger().Write() << std::put_time(std::localtime(&t), "%m-%d-%Y %H:%M:%S") <<
+            //     " " << current_request.endpoint.to_string() << " " <<
+            //     current_request.referrer << ( 0 == current_request.referrer.length() ? "- " :" ") <<
+            //     current_request.agent << ( 0 == current_request.agent.length() ? "- " :" ") <<
+            //     request;
+
+            time_t ltime;
+            struct tm *time_stamp;
+
+            TIMER_STOP(request_duration);
+
+            ltime = time(nullptr);
+            time_stamp = localtime(&ltime);
+
+            // log timestamp
+            SimpleLogger().Write() << (time_stamp->tm_mday < 10 ? "0" : "") << time_stamp->tm_mday << "-"
+                                   << (time_stamp->tm_mon + 1 < 10 ? "0" : "") << (time_stamp->tm_mon + 1)
+                                   << "-" << 1900 + time_stamp->tm_year << " "
+                                   << (time_stamp->tm_hour < 10 ? "0" : "") << time_stamp->tm_hour << ":"
+                                   << (time_stamp->tm_min < 10 ? "0" : "") << time_stamp->tm_min << ":"
+                                   << (time_stamp->tm_sec < 10 ? "0" : "") << time_stamp->tm_sec << " "
+                                   << "path=\"" << request_string << "\" "
+                                   << "service=" << TIMER_MSEC(request_duration) << "ms "
+                                   << "fwd=\"" << current_request.referrer << "\" "
+                                   << "status=" << current_reply.status << " ";
+      }
     }
     catch (const std::exception &e)
     {
