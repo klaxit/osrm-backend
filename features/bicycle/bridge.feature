@@ -1,14 +1,16 @@
 @routing @bicycle @bridge
-Feature: Bicycle - Handle movable bridge
+Feature: Bicycle - Handle cycling
 
     Background:
         Given the profile "bicycle"
 
-    Scenario: Car - Use a ferry route
+    Scenario: Bicycle - Use a movable bridge
         Given the node map
-            | a | b | c |   |   |
-            |   |   | d |   |   |
-            |   |   | e | f | g |
+            """
+            a b   c
+                  d
+                  e   f g
+            """
 
         And the ways
             | nodes | highway | bridge  | bicycle |
@@ -17,21 +19,16 @@ Feature: Bicycle - Handle movable bridge
             | efg   | primary |         |         |
 
         When I route I should get
-            | from | to | route       | modes |
-            | a    | g  | abc,cde,efg | 1,5,1 |
-            | b    | f  | abc,cde,efg | 1,5,1 |
-            | e    | c  | cde         | 5     |
-            | e    | b  | cde,abc     | 5,1   |
-            | e    | a  | cde,abc     | 5,1   |
-            | c    | e  | cde         | 5     |
-            | c    | f  | cde,efg     | 5,1   |
-            | c    | g  | cde,efg     | 5,1   |
+            | from | to | route           | modes                           |
+            | a    | g  | abc,cde,efg,efg | cycling,cycling,cycling,cycling |
 
-    Scenario: Car - Properly handle durations
+    Scenario: Bicycle - Properly handle durations
         Given the node map
-            | a | b | c |   |   |
-            |   |   | d |   |   |
-            |   |   | e | f | g |
+            """
+            a b   c
+                  d
+                  e   f g
+            """
 
         And the ways
             | nodes | highway | bridge  | duration |
@@ -40,8 +37,8 @@ Feature: Bicycle - Handle movable bridge
             | efg   | primary |         |          |
 
         When I route I should get
-            | from | to | route       | modes | speed   |
-            | a    | g  | abc,cde,efg | 1,5,1 | 5 km/h |
-            | b    | f  | abc,cde,efg | 1,5,1 | 4 km/h |
-            | c    | e  | cde         | 5     | 2 km/h |
-            | e    | c  | cde         | 5     | 2 km/h |
+            | from | to | route           | modes                           | speed  |
+            | a    | g  | abc,cde,efg,efg | cycling,cycling,cycling,cycling | 6 km/h |
+            | b    | f  | abc,cde,efg,efg | cycling,cycling,cycling,cycling | 5 km/h |
+            | c    | e  | cde,cde         | cycling,cycling                 | 2 km/h |
+            | e    | c  | cde,cde         | cycling,cycling                 | 2 km/h |

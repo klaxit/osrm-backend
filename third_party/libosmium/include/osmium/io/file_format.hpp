@@ -3,9 +3,9 @@
 
 /*
 
-This file is part of Osmium (http://osmcode.org/libosmium).
+This file is part of Osmium (https://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2020 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -40,22 +40,24 @@ namespace osmium {
     namespace io {
 
         enum class file_format {
-            unknown = 0,
-            xml     = 1,
-            pbf     = 2,
-            opl     = 3,
-            json    = 4,
-            o5m     = 5,
-            debug   = 6
+            unknown   = 0,
+            xml       = 1,
+            pbf       = 2,
+            opl       = 3,
+            json      = 4,
+            o5m       = 5,
+            debug     = 6,
+            blackhole = 7,
+            last      = 7 // must have the same value as the last real value
         };
 
-// avoid g++ false positive
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wreturn-type"
-        inline const char* as_string(file_format format) {
+        enum class read_meta {
+            no  = 0,
+            yes = 1
+        };
+
+        inline const char* as_string(const file_format format) noexcept {
             switch (format) {
-                case file_format::unknown:
-                    return "unknown";
                 case file_format::xml:
                     return "XML";
                 case file_format::pbf:
@@ -68,9 +70,13 @@ namespace osmium {
                     return "O5M";
                 case file_format::debug:
                     return "DEBUG";
+                case file_format::blackhole:
+                    return "BLACKHOLE";
+                default: // file_format::unknown
+                    break;
             }
+            return "unknown";
         }
-#pragma GCC diagnostic pop
 
         template <typename TChar, typename TTraits>
         inline std::basic_ostream<TChar, TTraits>& operator<<(std::basic_ostream<TChar, TTraits>& out, const file_format format) {

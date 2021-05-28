@@ -1,6 +1,13 @@
+# mason #
+#########
+/.mason
+/mason_packages
+
 # pre compiled dependencies #
 #############################
 osrm-deps
+
+.ycm_extra_conf.py
 
 # Compiled source #
 ###################
@@ -39,7 +46,13 @@ Thumbs.db
 
 # build related files #
 #######################
+/_build*
 /build/
+/example/build/
+/test/data/monaco.osrm*
+/test/data/ch
+/test/data/corech
+/test/data/mld
 /cmake/postinst
 
 # Eclipse related files #
@@ -49,11 +62,15 @@ Thumbs.db
 .cproject
 .project
 
-# stxxl related files #
-#######################
-.stxxl
-stxxl.log
-stxxl.errlog
+# Visual Studio (Code) related files #
+######################################
+/.vs*
+/*.local.bat
+/CMakeSettings.json
+
+# Jetbrains related files #
+###########################
+.idea/
 
 # Compiled Binary Files #
 ####################################
@@ -73,8 +90,22 @@ stxxl.errlog
 ###################
 /sandbox/
 
+# Test related files #
+######################
 /test/profile.lua
+/test/cache
+/test/speeds.csv
+/test/penalties.csv
+node_modules
 
 # Deprecated config file #
 ##########################
 /server.ini
+
+*.swp
+
+# local lua debugging file
+debug.lua
+
+# node-osrm artifacts
+lib/binding

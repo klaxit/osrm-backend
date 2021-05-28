@@ -3,9 +3,9 @@
 
 /*
 
-This file is part of Osmium (http://osmcode.org/libosmium).
+This file is part of Osmium (https://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2020 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -33,12 +33,6 @@ DEALINGS IN THE SOFTWARE.
 
 */
 
-#include <cstddef>
-#include <cstdint>
-#include <cstdlib>
-#include <cstring>
-#include <stdexcept>
-
 #include <osmium/memory/collection.hpp>
 #include <osmium/memory/item.hpp>
 #include <osmium/memory/item_iterator.hpp>
@@ -49,20 +43,35 @@ DEALINGS IN THE SOFTWARE.
 #include <osmium/osm/timestamp.hpp>
 #include <osmium/osm/types.hpp>
 #include <osmium/osm/types_from_string.hpp>
+#include <osmium/util/misc.hpp>
+
+#include <cstdlib>
+#include <cstring>
+#include <stdexcept>
+#include <tuple>
+#include <type_traits>
 
 namespace osmium {
+
+    namespace builder {
+        template <typename TDerived, typename T>
+        class OSMObjectBuilder;
+    } // namespace builder
 
     /**
      * OSMObject (Node, Way, Relation, or Area).
      */
     class OSMObject : public osmium::OSMEntity {
 
-        object_id_type      m_id;
+        template <typename TDerived, typename T>
+        friend class osmium::builder::OSMObjectBuilder;
+
+        object_id_type      m_id = 0;
         bool                m_deleted : 1;
         object_version_type m_version : 31;
-        osmium::Timestamp   m_timestamp;
-        user_id_type        m_uid;
-        changeset_id_type   m_changeset;
+        osmium::Timestamp   m_timestamp{};
+        user_id_type        m_uid = 0;
+        changeset_id_type   m_changeset = 0;
 
         size_t sizeof_object() const noexcept {
             return sizeof(OSMObject) + (type() == item_type::node ? sizeof(osmium::Location) : 0) + sizeof(string_size_type);
@@ -92,12 +101,8 @@ namespace osmium {
 
         OSMObject(osmium::memory::item_size_type size, osmium::item_type type) :
             OSMEntity(size, type),
-            m_id(0),
             m_deleted(false),
-            m_version(0),
-            m_timestamp(),
-            m_uid(0),
-            m_changeset(0) {
+            m_version(0) {
         }
 
         void set_user_size(string_size_type size) {
@@ -105,6 +110,13 @@ namespace osmium {
         }
 
     public:
+
+        constexpr static bool is_compatible_to(osmium::item_type t) noexcept {
+            return t == osmium::item_type::node ||
+                   t == osmium::item_type::way ||
+                   t == osmium::item_type::relation ||
+                   t == osmium::item_type::area;
+        }
 
         /// Get ID of this object.
         object_id_type id() const noexcept {
@@ -172,12 +184,12 @@ namespace osmium {
          * @returns Reference to object to make calls chainable.
          */
         OSMObject& set_visible(const char* visible) {
-            if (!strcmp("true", visible)) {
+            if (!std::strcmp("true", visible)) {
                 set_visible(true);
-            } else if (!strcmp("false", visible)) {
+            } else if (!std::strcmp("false", visible)) {
                 set_visible(false);
             } else {
-                throw std::invalid_argument("Unknown value for visible attribute (allowed is 'true' or 'false')");
+                throw std::invalid_argument{"Unknown value for visible attribute (allowed is 'true' or 'false')"};
             }
             return *this;
         }
@@ -262,7 +274,8 @@ namespace osmium {
          * @returns Reference to object to make calls chainable.
          */
         OSMObject& set_uid(const char* uid) {
-            return set_uid_from_signed(string_to_user_id(uid));
+            m_uid = string_to_uid(uid);
+            return *this;
         }
 
         /// Is this user anonymous?
@@ -281,14 +294,38 @@ namespace osmium {
          * @param timestamp Timestamp
          * @returns Reference to object to make calls chainable.
          */
-        OSMObject& set_timestamp(const osmium::Timestamp timestamp) noexcept {
+        OSMObject& set_timestamp(const osmium::Timestamp& timestamp) noexcept {
             m_timestamp = timestamp;
+            return *this;
+        }
+
+        /**
+         * Set the timestamp when this object last changed.
+         *
+         * @param timestamp Timestamp in ISO format.
+         * @returns Reference to object to make calls chainable.
+         * @throws std::invalid_argment if the timestamp isn't a correctly ISO
+         *                              formatted string with the Z timezone.
+         *
+         * @pre @code timestamp != nullptr @endcode
+         */
+        OSMObject& set_timestamp(const char* timestamp) {
+            assert(timestamp);
+            m_timestamp = detail::parse_timestamp(timestamp);
+            if (timestamp[20] != '\0') {
+                throw std::invalid_argument{"can not parse timestamp: garbage after timestamp"};
+            }
             return *this;
         }
 
         /// Get user name for this object.
         const char* user() const noexcept {
             return reinterpret_cast<const char*>(data() + sizeof_object());
+        }
+
+        /// Clear user name.
+        void clear_user() noexcept {
+            std::memset(data() + sizeof_object(), 0, user_size());
         }
 
         /// Get the list of tags for this object.
@@ -311,25 +348,42 @@ namespace osmium {
          *
          * @param attr Name of the attribute (must be one of "id", "version", "changeset", "timestamp", "uid", "visible")
          * @param value Value of the attribute
+         * @returns Reference to object to make calls chainable.
          */
-        void set_attribute(const char* attr, const char* value) {
-            if (!strcmp(attr, "id")) {
+        OSMObject& set_attribute(const char* attr, const char* value) {
+            if (!std::strcmp(attr, "id")) {
                 set_id(value);
-            } else if (!strcmp(attr, "version")) {
+            } else if (!std::strcmp(attr, "version")) {
                 set_version(value);
-            } else if (!strcmp(attr, "changeset")) {
+            } else if (!std::strcmp(attr, "changeset")) {
                 set_changeset(value);
-            } else if (!strcmp(attr, "timestamp")) {
-                set_timestamp(osmium::Timestamp(value));
-            } else if (!strcmp(attr, "uid")) {
+            } else if (!std::strcmp(attr, "timestamp")) {
+                set_timestamp(value);
+            } else if (!std::strcmp(attr, "uid")) {
                 set_uid(value);
-            } else if (!strcmp(attr, "visible")) {
+            } else if (!std::strcmp(attr, "visible")) {
                 set_visible(value);
             }
+
+            return *this;
         }
 
-        typedef osmium::memory::CollectionIterator<Item> iterator;
-        typedef osmium::memory::CollectionIterator<const Item> const_iterator;
+        using iterator       = osmium::memory::CollectionIterator<Item>;
+        using const_iterator = osmium::memory::CollectionIterator<const Item>;
+
+        /**
+         * Remove all tags from this object.
+         *
+         * (This will not change the size of the object, the tags are simply
+         * marked as removed.)
+         */
+        void remove_tags() noexcept {
+            for (auto& subitem : *this) {
+                if (subitem.type() == osmium::item_type::tag_list) {
+                    subitem.set_removed(true);
+                }
+            }
+        }
 
         iterator begin() {
             return iterator(subitems_position());
@@ -355,38 +409,60 @@ namespace osmium {
             return cend();
         }
 
-        template <class T>
+        /**
+         * Get a range of subitems of a specific type.
+         *
+         * @tparam The type (must be derived from osmium::memory::Item).
+         */
+        template <typename T>
+        osmium::memory::ItemIteratorRange<T> subitems() {
+            static_assert(std::is_base_of<osmium::memory::Item, T>::value, "T must be derived from osmium::memory::Item");
+            return osmium::memory::ItemIteratorRange<T>{subitems_position(), next()};
+        }
+
+        /**
+         * Get a range of subitems of a specific type.
+         *
+         * @tparam The type (must be derived from osmium::memory::Item).
+         */
+        template <typename T>
+        osmium::memory::ItemIteratorRange<const T> subitems() const {
+            static_assert(std::is_base_of<osmium::memory::Item, T>::value, "T must be derived from osmium::memory::Item");
+            return osmium::memory::ItemIteratorRange<const T>{subitems_position(), next()};
+        }
+
+        template <typename T>
         using t_iterator = osmium::memory::ItemIterator<T>;
 
-        template <class T>
+        template <typename T>
         using t_const_iterator = osmium::memory::ItemIterator<const T>;
 
-        template <class T>
+        template <typename T>
         t_iterator<T> begin() {
             return t_iterator<T>(subitems_position(), next());
         }
 
-        template <class T>
+        template <typename T>
         t_iterator<T> end() {
             return t_iterator<T>(next(), next());
         }
 
-        template <class T>
+        template <typename T>
         t_const_iterator<T> cbegin() const {
             return t_const_iterator<T>(subitems_position(), next());
         }
 
-        template <class T>
+        template <typename T>
         t_const_iterator<T> cend() const {
             return t_const_iterator<T>(next(), next());
         }
 
-        template <class T>
+        template <typename T>
         t_const_iterator<T> begin() const {
             return cbegin<T>();
         }
 
-        template <class T>
+        template <typename T>
         t_const_iterator<T> end() const {
             return cend<T>();
         }
@@ -399,26 +475,35 @@ namespace osmium {
      * OSMObjects are equal if their type, id, and version are equal.
      */
     inline bool operator==(const OSMObject& lhs, const OSMObject& rhs) noexcept {
-        return lhs.type() == rhs.type() &&
-               lhs.id() == rhs.id() &&
+        return lhs.type()    == rhs.type() &&
+               lhs.id()      == rhs.id()   &&
                lhs.version() == rhs.version();
     }
 
     inline bool operator!=(const OSMObject& lhs, const OSMObject& rhs) noexcept {
-        return ! (lhs == rhs);
+        return !(lhs == rhs);
     }
 
     /**
-     * OSMObjects can be ordered by type, id and version.
-     * Note that we use the absolute value of the id for a
-     * better ordering of objects with negative id.
+     * OSMObjects can be ordered by type, id, version, and timestamp. Usually
+     * ordering by timestamp is not necessary as there shouldn't be two
+     * objects with the same type, id, and version. But this can happen when
+     * creating diff files from extracts, so we take the timestamp into
+     * account here.
+     *
+     * Note that we use the absolute value of the id for a better ordering
+     * of objects with negative id. All the negative IDs come first, then the
+     * positive IDs. IDs are ordered by their absolute values. (This is the
+     * same ordering JOSM uses.)
+     *
+     * See object_order_type_id_reverse_version if you need a different
+     * ordering.
      */
     inline bool operator<(const OSMObject& lhs, const OSMObject& rhs) noexcept {
-        if (lhs.type() != rhs.type()) {
-            return lhs.type() < rhs.type();
-        }
-        return (lhs.id() == rhs.id() && lhs.version() < rhs.version()) ||
-               lhs.positive_id() < rhs.positive_id();
+        return const_tie(lhs.type(), lhs.id() > 0, lhs.positive_id(), lhs.version(),
+                   ((lhs.timestamp().valid() && rhs.timestamp().valid()) ? lhs.timestamp() : osmium::Timestamp())) <
+               const_tie(rhs.type(), rhs.id() > 0, rhs.positive_id(), rhs.version(),
+                   ((lhs.timestamp().valid() && rhs.timestamp().valid()) ? rhs.timestamp() : osmium::Timestamp()));
     }
 
     inline bool operator>(const OSMObject& lhs, const OSMObject& rhs) noexcept {
@@ -426,11 +511,11 @@ namespace osmium {
     }
 
     inline bool operator<=(const OSMObject& lhs, const OSMObject& rhs) noexcept {
-        return ! (rhs < lhs);
+        return !(rhs < lhs);
     }
 
     inline bool operator>=(const OSMObject& lhs, const OSMObject& rhs) noexcept {
-        return ! (lhs < rhs);
+        return !(lhs < rhs);
     }
 
 } // namespace osmium

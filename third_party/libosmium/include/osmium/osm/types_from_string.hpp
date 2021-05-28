@@ -3,9 +3,9 @@
 
 /*
 
-This file is part of Osmium (http://osmcode.org/libosmium).
+This file is part of Osmium (https://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2020 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -33,82 +33,187 @@ DEALINGS IN THE SOFTWARE.
 
 */
 
+#include <osmium/osm/entity_bits.hpp>
+#include <osmium/osm/item_type.hpp>
+#include <osmium/osm/types.hpp>
+#include <osmium/util/compatibility.hpp>
+
 #include <cassert>
 #include <cctype>
-#include <cstdint>
 #include <cstdlib>
 #include <limits>
+#include <stdexcept>
 #include <string>
 #include <utility>
 
-#include <osmium/osm/entity_bits.hpp>
-#include <osmium/osm/types.hpp>
-
 namespace osmium {
 
+    /**
+     * Convert string with object id to object_id_type.
+     *
+     * @pre @code input != nullptr @endcode
+     *
+     * @param input Input string.
+     *
+     * @throws std::range_error if the value is out of range.
+     */
     inline object_id_type string_to_object_id(const char* input) {
         assert(input);
         if (*input != '\0' && !std::isspace(*input)) {
             char* end;
-            auto id = std::strtoll(input, &end, 10);
-            if (id != std::numeric_limits<long long>::min() && id != std::numeric_limits<long long>::max() && *end == '\0') {
+            const auto id = std::strtoll(input, &end, 10);
+            if (id != std::numeric_limits<long long>::min() && // NOLINT(google-runtime-int)
+                id != std::numeric_limits<long long>::max() && // NOLINT(google-runtime-int)
+                *end == '\0') {
                 return id;
             }
         }
-        throw std::range_error(std::string("illegal id: '") + input + "'");
+        throw std::range_error{std::string{"illegal id: '"} + input + "'"};
     }
 
-    inline std::pair<osmium::item_type, osmium::object_id_type> string_to_object_id(const char* input, osmium::osm_entity_bits::type types) {
+    /**
+     * Parse string with object type identifier followed by object id. This
+     * reads strings like "n1234" and "w10". If there is no type prefix,
+     * the default_type is returned.
+     *
+     * @pre @code input != nullptr @endcode
+     * @pre @code types != osmium::osm_entity_bits::nothing @endcode
+     *
+     * @param input Input string.
+     * @param types Allowed types. Must not be osmium::osm_entity_bits::nothing.
+     * @param default_type Type used when there is no type prefix.
+     *
+     * @returns std::pair of type and id.
+     *
+     * @throws std::range_error if the value is out of range.
+     */
+    inline std::pair<osmium::item_type, osmium::object_id_type>
+    string_to_object_id(const char* input,
+                        osmium::osm_entity_bits::type types,
+                        osmium::item_type default_type = osmium::item_type::undefined) {
         assert(input);
         assert(types != osmium::osm_entity_bits::nothing);
         if (*input != '\0') {
             if (std::isdigit(*input)) {
-                return std::make_pair(osmium::item_type::undefined, string_to_object_id(input));
+                return std::make_pair(default_type, string_to_object_id(input));
             }
-            osmium::item_type t = osmium::char_to_item_type(*input);
+            const osmium::item_type t = osmium::char_to_item_type(*input);
             if (osmium::osm_entity_bits::from_item_type(t) & types) {
-                return std::make_pair(t, string_to_object_id(input+1));
+                return std::make_pair(t, string_to_object_id(input + 1));
             }
         }
-        throw std::range_error(std::string("not a valid id: '") + input + "'");
+        throw std::range_error{std::string{"not a valid id: '"} + input + "'"};
     }
 
     namespace detail {
 
-        inline long string_to_ulong(const char* input, const char *name) {
+        inline uint32_t string_to_ulong(const char* input, const char* name) {
+            if (input[0] == '-' && input[1] == '1' && input[2] == '\0') {
+                return 0;
+            }
             if (*input != '\0' && *input != '-' && !std::isspace(*input)) {
                 char* end;
-                auto value = std::strtoul(input, &end, 10);
-                if (value != std::numeric_limits<unsigned long>::max() && *end == '\0') {
-                    return value;
+                const auto value = std::strtoul(input, &end, 10);
+                if (value < std::numeric_limits<uint32_t>::max() && *end == '\0') {
+                    return static_cast<uint32_t>(value);
                 }
             }
-            throw std::range_error(std::string("illegal ") + name + ": '" + input + "'");
+            throw std::range_error{std::string{"illegal "} + name + ": '" + input + "'"};
         }
 
     } // namespace detail
 
+    /**
+     * Convert string with object version to object_version_type.
+     *
+     * @pre input must not be nullptr.
+     *
+     * @param input Input string.
+     *
+     * @throws std::range_error if the value is out of range.
+     */
     inline object_version_type string_to_object_version(const char* input) {
         assert(input);
-        return static_cast<object_version_type>(detail::string_to_ulong(input, "version"));
+        return detail::string_to_ulong(input, "version");
     }
 
+    /**
+     * Convert string with changeset id to changeset_id_type.
+     *
+     * @pre input must not be nullptr.
+     *
+     * @param input Input string.
+     *
+     * @throws std::range_error if the value is out of range.
+     */
     inline changeset_id_type string_to_changeset_id(const char* input) {
         assert(input);
-        return static_cast<changeset_id_type>(detail::string_to_ulong(input, "changeset"));
+        return detail::string_to_ulong(input, "changeset");
     }
 
-    inline signed_user_id_type string_to_user_id(const char* input) {
+    /**
+     * Convert string with user id to signed_user_id_type.
+     *
+     * @pre input must not be nullptr.
+     *
+     * @param input Input string.
+     *
+     * @throws std::range_error if the value is out of range.
+     *
+     * @deprecated Use string_to_uid() instead.
+     */
+    OSMIUM_DEPRECATED inline signed_user_id_type string_to_user_id(const char* input) {
         assert(input);
         if (input[0] == '-' && input[1] == '1' && input[2] == '\0') {
             return -1;
         }
-        return static_cast<signed_user_id_type>(detail::string_to_ulong(input, "user id"));
+        const auto value = detail::string_to_ulong(input, "user id");
+        if (value > static_cast<uint32_t>(std::numeric_limits<int32_t>::max())) {
+            throw std::range_error{"illegal user id"};
+        }
+        return static_cast<signed_user_id_type>(value);
     }
 
+    /**
+     * Convert string with user id to user_id_type.
+     *
+     * @pre input must not be nullptr.
+     *
+     * @param input Input string.
+     *
+     * @throws std::range_error if the value is out of range.
+     */
+    inline user_id_type string_to_uid(const char* input) {
+        assert(input);
+        return detail::string_to_ulong(input, "user id");
+    }
+
+    /**
+     * Convert string with number of changes to num_changes_type.
+     *
+     * @pre input must not be nullptr.
+     *
+     * @param input Input string.
+     *
+     * @throws std::range_error if the value is out of range.
+     */
     inline num_changes_type string_to_num_changes(const char* input) {
         assert(input);
-        return static_cast<num_changes_type>(detail::string_to_ulong(input, "value for num changes"));
+        return detail::string_to_ulong(input, "value for num changes");
+    }
+
+    /**
+     * Convert string with number of comments to num_comments_type.
+     *
+     * @pre input must not be nullptr.
+     *
+     * @param input Input string.
+     *
+     * @throws std::range_error if the value is out of range.
+     */
+    inline num_comments_type string_to_num_comments(const char* input) {
+        assert(input);
+        return detail::string_to_ulong(input, "value for num comments");
     }
 
 } // namespace osmium

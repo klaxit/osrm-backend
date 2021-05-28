@@ -3,9 +3,9 @@
 
 /*
 
-This file is part of Osmium (http://osmcode.org/libosmium).
+This file is part of Osmium (https://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2020 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -33,9 +33,9 @@ DEALINGS IN THE SOFTWARE.
 
 */
 
+#include <cstddef>
 #include <string>
 #include <vector>
-#include <iostream>
 
 namespace osmium {
 
@@ -44,18 +44,18 @@ namespace osmium {
      *
      * @param str The string to be split.
      * @param sep The separator character.
-     * @param compact Set this to true to remove empty strings from result
+     * @param compact Set this to true to remove empty strings from result.
      * @returns Vector with the parts of the string split up.
      */
     inline std::vector<std::string> split_string(const std::string& str, const char sep, bool compact = false) {
         std::vector<std::string> tokens;
 
         if (!str.empty()) {
-            size_t pos = 0;
-            size_t nextpos = str.find_first_of(sep);
+            std::size_t pos = 0;
+            std::size_t nextpos = str.find_first_of(sep);
             while (nextpos != std::string::npos) {
                 if (!compact || (nextpos - pos != 0)) {
-                    tokens.push_back(str.substr(pos, nextpos-pos));
+                    tokens.push_back(str.substr(pos, nextpos - pos));
                 }
                 pos = nextpos + 1;
                 nextpos = str.find_first_of(sep, pos);
@@ -69,22 +69,22 @@ namespace osmium {
     }
 
     /**
-     * Split string on the separator character(s).
+     * Split string on any of the separator characters.
      *
      * @param str The string to be split.
      * @param sep The separator character(s).
-     * @param compact Set this to true to remove empty strings from result
+     * @param compact Set this to true to remove empty strings from result.
      * @returns Vector with the parts of the string split up.
      */
     inline std::vector<std::string> split_string(const std::string& str, const char* sep, bool compact = false) {
         std::vector<std::string> tokens;
 
         if (!str.empty()) {
-            size_t pos = 0;
-            size_t nextpos = str.find_first_of(sep);
+            std::size_t pos = 0;
+            std::size_t nextpos = str.find_first_of(sep);
             while (nextpos != std::string::npos) {
                 if (!compact || (nextpos - pos != 0)) {
-                    tokens.push_back(str.substr(pos, nextpos-pos));
+                    tokens.push_back(str.substr(pos, nextpos - pos));
                 }
                 pos = nextpos + 1;
                 nextpos = str.find_first_of(sep, pos);

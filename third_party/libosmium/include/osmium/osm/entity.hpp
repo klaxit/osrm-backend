@@ -3,9 +3,9 @@
 
 /*
 
-This file is part of Osmium (http://osmcode.org/libosmium).
+This file is part of Osmium (https://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2020 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -41,17 +41,17 @@ namespace osmium {
 
     namespace detail {
 
-        template <class TSubitem, class TIter>
-        inline TSubitem& subitem_of_type(TIter it, TIter end) {
+        template <typename TSubitem, typename TIter>
+        inline TSubitem& subitem_of_type(TIter it, const TIter& end) {
             for (; it != end; ++it) {
-                if (it->type() == TSubitem::itemtype) {
+                if (TSubitem::is_compatible_to(it->type()) && !it->removed()) {
                     return reinterpret_cast<TSubitem&>(*it);
                 }
             }
 
             // If no subitem of the TSubitem type was found,
             // return a default constructed one.
-            static TSubitem subitem;
+            static TSubitem subitem{};
             return subitem;
         }
 
@@ -64,6 +64,14 @@ namespace osmium {
     class OSMEntity : public osmium::memory::Item {
 
     public:
+
+        constexpr static bool is_compatible_to(osmium::item_type t) noexcept {
+            return t == osmium::item_type::node ||
+                   t == osmium::item_type::way ||
+                   t == osmium::item_type::relation ||
+                   t == osmium::item_type::area ||
+                   t == osmium::item_type::changeset;
+        }
 
         explicit OSMEntity(osmium::memory::item_size_type size, osmium::item_type type) :
             Item(size, type) {

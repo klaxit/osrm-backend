@@ -3,9 +3,9 @@
 
 /*
 
-This file is part of Osmium (http://osmcode.org/libosmium).
+This file is part of Osmium (https://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2020 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -52,32 +52,32 @@ namespace osmium {
 
                 static_assert(std::is_integral<TId>::value && std::is_unsigned<TId>::value, "TId template parameter for class Multimap must be unsigned integral type");
 
-                typedef typename std::pair<TId, TValue> element_type;
-
-                Multimap(const Multimap&) = delete;
-                Multimap& operator=(const Multimap&) = delete;
+                using element_type = typename std::pair<TId, TValue>;
 
             protected:
 
-                Multimap(Multimap&&) = default;
-                Multimap& operator=(Multimap&&) = default;
+                Multimap(Multimap&&) noexcept = default;
+                Multimap& operator=(Multimap&&) noexcept = default;
 
             public:
 
                 /// The "key" type, usually osmium::unsigned_object_id_type.
-                typedef TId key_type;
+                using key_type = TId;
 
                 /// The "value" type, usually a Location or size_t.
-                typedef TValue value_type;
+                using value_type = TValue;
 
                 Multimap() = default;
+
+                Multimap(const Multimap&) = delete;
+                Multimap& operator=(const Multimap&) = delete;
 
                 virtual ~Multimap() noexcept = default;
 
                 /// Set the field with id to value.
                 virtual void set(const TId id, const TValue value) = 0;
 
-                typedef element_type* iterator;
+                using iterator = element_type*;
 
 //                virtual std::pair<iterator, iterator> get_all(const TId id) const = 0;
 
@@ -113,12 +113,12 @@ namespace osmium {
                 }
 
                 virtual void dump_as_list(const int /*fd*/) {
-                    std::runtime_error("can't dump as list");
+                    throw std::runtime_error{"can't dump as list"};
                 }
 
             }; // class Multimap
 
-        } // namespace map
+        } // namespace multimap
 
     } // namespace index
 

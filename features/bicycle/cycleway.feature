@@ -46,12 +46,14 @@ Feature: Bike - Cycle tracks/lanes
             | primary  |          |               |                | x    | x     |
             | motorway |          |               |                |      |       |
             | motorway | track    |               |                | x    |       |
-            | motorway | opposite |               |                |      | x     |
-            | motorway |          | track         |                |      | x     |
-            | motorway |          | opposite      |                |      | x     |
+            | motorway | opposite |               |                | x    | x     |
+            | motorway |          | track         |                | x    |       |
+            | motorway |          | opposite      |                | x    | x     |
             | motorway |          |               | track          | x    |       |
-            | motorway |          |               | opposite       | x    |       |
-            | motorway |          | track         | track          | x    | x     |
+            | motorway |          |               | opposite       | x    | x     |
+            # motorways are implicit oneways and cycleway tracks next to oneways always
+            # follow the oneway direction (unless tagged as opposite)
+            | motorway |          | track         | track          | x    |       |
             | motorway |          | opposite      | opposite       | x    | x     |
             | motorway |          | track         | opposite       | x    | x     |
             | motorway |          | opposite      | track          | x    | x     |
@@ -79,3 +81,19 @@ Feature: Bike - Cycle tracks/lanes
             | residential | lane     | yes    | x    | x     |
             | footway     | lane     | yes    | x    | x     |
             | cycleway    | lane     | yes    | x    | x     |
+
+    Scenario: Bike - Cycleway on oneways, modes
+        Then routability should be
+            | highway     | cycleway | oneway | forw    | backw        |
+            | motorway    | track    | yes    | cycling |              |
+            | residential | track    | yes    | cycling | pushing bike |
+            | cycleway    | track    | yes    | cycling | pushing bike |
+            | footway     | track    | yes    | cycling | pushing bike |
+
+    Scenario: Bike - Cycleway on oneways, speeds
+        Then routability should be
+            | highway     | cycleway | oneway | forw    | backw      |
+            | motorway    | track    | yes    | 15 km/h |            |
+            | residential | track    | yes    | 15 km/h | 4 km/h +-1 |
+            | cycleway    | track    | yes    | 15 km/h | 4 km/h +-1 |
+            | footway     | track    | yes    | 15 km/h | 4 km/h +-1 |

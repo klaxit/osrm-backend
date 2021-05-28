@@ -3,9 +3,9 @@
 
 /*
 
-This file is part of Osmium (http://osmcode.org/libosmium).
+This file is part of Osmium (https://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2020 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -33,8 +33,8 @@ DEALINGS IN THE SOFTWARE.
 
 */
 
-#include <algorithm>
 #include <memory>
+#include <utility>
 
 namespace osmium {
 
@@ -49,8 +49,19 @@ namespace osmium {
 
             struct impl_base {
 
-                virtual ~impl_base() = default;
-                virtual void call() = 0;
+                impl_base() noexcept = default;
+
+                impl_base(const impl_base&) noexcept = default;
+                impl_base& operator=(const impl_base&) noexcept = default;
+
+                impl_base(impl_base&&) noexcept = default;
+                impl_base& operator=(impl_base&&) noexcept = default;
+
+                virtual ~impl_base() noexcept = default;
+
+                virtual bool call() {
+                    return true;
+                }
 
             }; // struct impl_base
 
@@ -58,43 +69,55 @@ namespace osmium {
 
             template <typename F>
             struct impl_type : impl_base {
+
                 F m_functor;
 
-                impl_type(F&& functor) :
-                    m_functor(std::move(functor)) {
+                explicit impl_type(F&& functor) :
+                    m_functor(std::forward<F>(functor)) {
                 }
 
-                void call() override {
+                bool call() override {
                     m_functor();
+                    return false;
                 }
+
             }; // struct impl_type
 
         public:
 
             // Constructor must not be "explicit" for wrapper
             // to work seemlessly.
-            template <typename F>
-            function_wrapper(F&& f) :
-                impl(new impl_type<F>(std::move(f))) {
+            template <typename TFunction, typename X = typename std::enable_if<
+                !std::is_same<TFunction, function_wrapper>::value, void>::type>
+            // cppcheck-suppress noExplicitConstructor
+            function_wrapper(TFunction&& f) : // NOLINT(google-explicit-constructor, hicpp-explicit-conversions)
+                impl(new impl_type<TFunction>(std::forward<TFunction>(f))) {
             }
 
-            void operator()() {
-                impl->call();
+            // The integer parameter is only used to signal that we want
+            // the special function wrapper that makes the worker thread
+            // shut down.
+            explicit function_wrapper(int /*dummy*/) :
+                impl(new impl_base()) {
+            }
+
+            bool operator()() {
+                return impl->call();
             }
 
             function_wrapper() = default;
 
-            function_wrapper(function_wrapper&& other) :
+            function_wrapper(const function_wrapper&) = delete;
+            function_wrapper& operator=(const function_wrapper&) = delete;
+
+            function_wrapper(function_wrapper&& other) noexcept :
                 impl(std::move(other.impl)) {
             }
 
-            function_wrapper& operator=(function_wrapper&& other) {
+            function_wrapper& operator=(function_wrapper&& other) noexcept {
                 impl = std::move(other.impl);
                 return *this;
             }
-
-            function_wrapper(const function_wrapper&) = delete;
-            function_wrapper& operator=(const function_wrapper&) = delete;
 
             ~function_wrapper() = default;
 

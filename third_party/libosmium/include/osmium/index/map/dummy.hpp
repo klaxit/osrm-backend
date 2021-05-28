@@ -3,9 +3,9 @@
 
 /*
 
-This file is part of Osmium (http://osmcode.org/libosmium).
+This file is part of Osmium (https://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2020 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -33,10 +33,10 @@ DEALINGS IN THE SOFTWARE.
 
 */
 
-#include <cstddef>
-
 #include <osmium/index/index.hpp>
 #include <osmium/index/map.hpp>
+
+#include <cstddef>
 
 namespace osmium {
 
@@ -56,25 +56,27 @@ namespace osmium {
 
                 Dummy() = default;
 
-                ~Dummy() override final = default;
-
-                void set(const TId, const TValue) override final {
+                void set(const TId /*id*/, const TValue /*value*/) final {
                     // intentionally left blank
                 }
 
-                const TValue get(const TId id) const override final {
-                    not_found_error(id);
+                TValue get(const TId id) const final {
+                    throw osmium::not_found{id};
                 }
 
-                size_t size() const override final {
+                TValue get_noexcept(const TId /*id*/) const noexcept final {
+                    return osmium::index::empty_value<TValue>();
+                }
+
+                size_t size() const final {
                     return 0;
                 }
 
-                size_t used_memory() const override final {
+                size_t used_memory() const final {
                     return 0;
                 }
 
-                void clear() override final {
+                void clear() final {
                 }
 
             }; // class Dummy

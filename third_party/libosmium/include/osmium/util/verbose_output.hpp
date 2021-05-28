@@ -3,9 +3,9 @@
 
 /*
 
-This file is part of Osmium (http://osmcode.org/libosmium).
+This file is part of Osmium (https://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2020 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -33,18 +33,18 @@ DEALINGS IN THE SOFTWARE.
 
 */
 
-#include <time.h>
-
+#include <ctime>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
+#include <string>
 
 namespace osmium {
 
     /**
      * @brief Helpful utility classes and functions not strictly OSM related
      */
-    namespace util {
+    inline namespace util {
 
         /**
          * Osmium programs often run for a long time because of the amount of
@@ -75,9 +75,9 @@ namespace osmium {
              */
             void start_line() {
                 if (m_newline) {
-                    time_t elapsed = runtime();
+                    const time_t elapsed = runtime();
 
-                    char old_fill = std::cerr.fill();
+                    const char old_fill = std::cerr.fill();
                     std::cerr << '[' << std::setw(2) << (elapsed / 60) << ':' << std::setw(2) << std::setfill('0') << (elapsed % 60) << "] ";
                     std::cerr.fill(old_fill);
 
@@ -88,20 +88,13 @@ namespace osmium {
         public:
 
             explicit VerboseOutput(bool verbose = false) noexcept :
-                m_start(time(NULL)),
+                m_start(time(nullptr)),
                 m_verbose(verbose),
                 m_newline(true) {
             }
 
-            ~VerboseOutput() = default;
-
-            VerboseOutput(const VerboseOutput&) = default;
-            VerboseOutput& operator=(const VerboseOutput&) = default;
-            VerboseOutput(VerboseOutput&&) = default;
-            VerboseOutput& operator=(VerboseOutput&&) = default;
-
             time_t runtime() const noexcept {
-                return time(NULL) - m_start;
+                return time(nullptr) - m_start;
             }
 
             /// Get "verbose" setting.
@@ -114,23 +107,28 @@ namespace osmium {
                 m_verbose = verbose;
             }
 
-            template<typename T>
-            friend VerboseOutput& operator<<(VerboseOutput& verbose_output, const T& value) {
-                if (verbose_output.m_verbose) {
-                    verbose_output.start_line();
+            template <typename T>
+            void print(const T& value) {
+                if (m_verbose) {
+                    start_line();
                     std::cerr << value;
 
                     // check if there was a newline a the end and remember that
                     std::ostringstream output_buffer;
                     output_buffer << value;
                     if (!output_buffer.str().empty() && output_buffer.str().back() == '\n') {
-                        verbose_output.m_newline = true;
+                        m_newline = true;
                     }
                 }
-                return verbose_output;
             }
 
         }; // class VerboseOutput
+
+        template <typename T>
+        inline VerboseOutput& operator<<(VerboseOutput& verbose_output, const T& value) {
+            verbose_output.print(value);
+            return verbose_output;
+        }
 
     } // namespace util
 

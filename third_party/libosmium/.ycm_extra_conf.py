@@ -2,7 +2,7 @@
 #
 #  Configuration for YouCompleteMe Vim plugin
 #
-#  http://valloric.github.io/YouCompleteMe/
+#  https://valloric.github.io/YouCompleteMe/
 #
 #-----------------------------------------------------------------------------
 
@@ -28,6 +28,11 @@ flags = [
 # use 'c' for C projects
 '-x',
 'c++',
+
+# workaround for https://github.com/Valloric/YouCompleteMe/issues/303
+# also see https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=800618
+'-isystem',
+'/usr/lib/ycmd/clang_includes/',
 
 # libosmium include dirs
 '-I%s/include' % basedir,

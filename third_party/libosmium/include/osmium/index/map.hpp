@@ -3,9 +3,9 @@
 
 /*
 
-This file is part of Osmium (http://osmcode.org/libosmium).
+This file is part of Osmium (https://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2020 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -33,6 +33,8 @@ DEALINGS IN THE SOFTWARE.
 
 */
 
+#include <osmium/util/string.hpp>
+
 #include <algorithm>
 #include <cstddef>
 #include <functional>
@@ -43,10 +45,19 @@ DEALINGS IN THE SOFTWARE.
 #include <type_traits>
 #include <vector>
 
-#include <osmium/util/compatibility.hpp>
-#include <osmium/util/string.hpp>
-
 namespace osmium {
+
+    struct map_factory_error : public std::runtime_error {
+
+        explicit map_factory_error(const char* message) :
+            std::runtime_error(message) {
+        }
+
+        explicit map_factory_error(const std::string& message) :
+            std::runtime_error(message) {
+        }
+
+    }; // struct map_factory_error
 
     namespace index {
 
@@ -84,37 +95,55 @@ namespace osmium {
             template <typename TId, typename TValue>
             class Map {
 
-                static_assert(std::is_integral<TId>::value && std::is_unsigned<TId>::value, "TId template parameter for class Map must be unsigned integral type");
-
-                Map(const Map&) = delete;
-                Map& operator=(const Map&) = delete;
+                static_assert(std::is_integral<TId>::value && std::is_unsigned<TId>::value,
+                              "TId template parameter for class Map must be unsigned integral type");
 
             protected:
 
-                Map(Map&&) = default;
-                Map& operator=(Map&&) = default;
+                Map(Map&&) noexcept = default;
+                Map& operator=(Map&&) noexcept = default;
 
             public:
 
                 /// The "key" type, usually osmium::unsigned_object_id_type.
-                typedef TId key_type;
+                using key_type = TId;
 
                 /// The "value" type, usually a Location or size_t.
-                typedef TValue value_type;
+                using value_type = TValue;
 
-                Map() = default;
+                Map() noexcept = default;
 
-                virtual ~Map() = default;
+                Map(const Map&) = delete;
+                Map& operator=(const Map&) = delete;
 
-                virtual void reserve(const size_t) {
+                virtual ~Map() noexcept = default;
+
+                virtual void reserve(const std::size_t /*size*/) {
                     // default implementation is empty
                 }
 
                 /// Set the field with id to value.
                 virtual void set(const TId id, const TValue value) = 0;
 
-                /// Retrieve value by id. Does not check for overflow or empty fields.
-                virtual const TValue get(const TId id) const = 0;
+                /**
+                 * Retrieve value by id.
+                 *
+                 * @param id The id to look for.
+                 * @returns Value.
+                 * @throws osmium::not_found if the id could not be found.
+                 */
+                virtual TValue get(const TId id) const = 0;
+
+                /**
+                 * Retrieve value by id.
+                 *
+                 * @param id The id to look for.
+                 * @returns Value or, if not found, the empty value as defined
+                 *          by osmium::index::empty_value<TValue>() which is
+                 *          usually the default constructed value of type
+                 *          TValue.
+                 */
+                virtual TValue get_noexcept(const TId id) const noexcept = 0;
 
                 /**
                  * Get the approximate number of items in the storage. The storage
@@ -122,7 +151,7 @@ namespace osmium {
                  * accurate. You can not use this to find out how much memory the
                  * storage uses. Use used_memory() for that.
                  */
-                virtual size_t size() const = 0;
+                virtual std::size_t size() const = 0;
 
                 /**
                  * Get the memory used for this storage in bytes. Note that this
@@ -131,7 +160,7 @@ namespace osmium {
                  * the main memory used, for storage classes storing data on disk
                  * this is the memory used on disk.
                  */
-                virtual size_t used_memory() const = 0;
+                virtual std::size_t used_memory() const = 0;
 
                 /**
                  * Clear memory used for this storage. After this you can not
@@ -147,12 +176,18 @@ namespace osmium {
                     // default implementation is empty
                 }
 
+                // This function can usually be const in derived classes,
+                // but not always. It could, for instance, sort internal data.
+                // This is why it is not declared const here.
                 virtual void dump_as_list(const int /*fd*/) {
-                    throw std::runtime_error("can't dump as list");
+                    throw std::runtime_error{"can't dump as list"};
                 }
 
+                // This function can usually be const in derived classes,
+                // but not always. It could, for instance, sort internal data.
+                // This is why it is not declared const here.
                 virtual void dump_as_array(const int /*fd*/) {
-                    throw std::runtime_error("can't dump as array");
+                    throw std::runtime_error{"can't dump as array"};
                 }
 
             }; // class Map
@@ -164,10 +199,10 @@ namespace osmium {
 
         public:
 
-            typedef TId id_type;
-            typedef TValue value_type;
-            typedef osmium::index::map::Map<id_type, value_type> map_type;
-            typedef std::function<map_type*(const std::vector<std::string>&)> create_map_func;
+            using id_type         = TId;
+            using value_type      = TValue;
+            using map_type        = osmium::index::map::Map<id_type, value_type>;
+            using create_map_func = std::function<map_type*(const std::vector<std::string>&)>;
 
         private:
 
@@ -175,20 +210,15 @@ namespace osmium {
 
             MapFactory() = default;
 
+        public:
+
             MapFactory(const MapFactory&) = delete;
             MapFactory& operator=(const MapFactory&) = delete;
 
             MapFactory(MapFactory&&) = delete;
             MapFactory& operator=(MapFactory&&) = delete;
 
-            OSMIUM_NORETURN static void error(const std::string& map_type_name) {
-                std::string error_message {"Support for map type '"};
-                error_message += map_type_name;
-                error_message += "' not compiled into this binary.";
-                throw std::runtime_error(error_message);
-            }
-
-        public:
+            ~MapFactory() = default;
 
             static MapFactory<id_type, value_type>& instance() {
                 static MapFactory<id_type, value_type> factory;
@@ -200,7 +230,7 @@ namespace osmium {
             }
 
             bool has_map_type(const std::string& map_type_name) const {
-                return m_callbacks.count(map_type_name);
+                return m_callbacks.count(map_type_name) != 0;
             }
 
             std::vector<std::string> map_types() const {
@@ -216,34 +246,34 @@ namespace osmium {
             }
 
             std::unique_ptr<map_type> create_map(const std::string& config_string) const {
-                std::vector<std::string> config = osmium::split_string(config_string, ',');
+                std::vector<std::string> config{osmium::split_string(config_string, ',')};
 
                 if (config.empty()) {
-                    throw std::runtime_error("Need non-empty map type name.");
+                    throw map_factory_error{"Need non-empty map type name"};
                 }
 
-                auto it = m_callbacks.find(config[0]);
+                const auto it = m_callbacks.find(config[0]);
                 if (it != m_callbacks.end()) {
                     return std::unique_ptr<map_type>((it->second)(config));
                 }
 
-                error(config[0]);
+                throw map_factory_error{std::string{"Support for map type '"} + config[0] + "' not compiled into this binary"};
             }
 
         }; // class MapFactory
 
         namespace map {
 
-            template <typename TId, typename TValue, template<typename, typename> class TMap>
+            template <typename TId, typename TValue, template <typename, typename> class TMap>
             struct create_map {
-                TMap<TId, TValue>* operator()(const std::vector<std::string>&) {
+                TMap<TId, TValue>* operator()(const std::vector<std::string>& /*config_string*/) {
                     return new TMap<TId, TValue>();
                 }
             };
 
         } // namespace map
 
-        template <typename TId, typename TValue, template<typename, typename> class TMap>
+        template <typename TId, typename TValue, template <typename, typename> class TMap>
         inline bool register_map(const std::string& name) {
             return osmium::index::MapFactory<TId, TValue>::instance().register_map(name, [](const std::vector<std::string>& config) {
                 return map::create_map<TId, TValue, TMap>()(config);
@@ -252,12 +282,15 @@ namespace osmium {
 
 #define OSMIUM_CONCATENATE_DETAIL_(x, y) x##y
 #define OSMIUM_CONCATENATE_(x, y) OSMIUM_CONCATENATE_DETAIL_(x, y)
-#define OSMIUM_MAKE_UNIQUE_(x) OSMIUM_CONCATENATE_(x, __COUNTER__)
 
 #define REGISTER_MAP(id, value, klass, name) \
-namespace { \
-    const bool OSMIUM_MAKE_UNIQUE_(registered_index_map_##name) = osmium::index::register_map<id, value, klass>(#name); \
-}
+namespace osmium { namespace index { namespace detail { \
+    namespace OSMIUM_CONCATENATE_(register_map_, __COUNTER__) { \
+    const bool registered = osmium::index::register_map<id, value, klass>(#name); \
+    inline bool get_registered() noexcept { \
+        return registered; \
+    } } \
+} } }
 
     } // namespace index
 

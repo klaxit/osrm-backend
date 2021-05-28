@@ -3,9 +3,9 @@
 
 /*
 
-This file is part of Osmium (http://osmcode.org/libosmium).
+This file is part of Osmium (https://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2020 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -33,16 +33,15 @@ DEALINGS IN THE SOFTWARE.
 
 */
 
+#include <osmium/index/index.hpp>
+#include <osmium/index/map.hpp>
+#include <osmium/io/detail/read_write.hpp>
+
 #include <algorithm> // IWYU pragma: keep (for std::copy)
 #include <cstddef>
 #include <iterator>
 #include <map>
-#include <stdexcept>
 #include <vector>
-
-#include <osmium/index/map.hpp>
-#include <osmium/index/index.hpp>
-#include <osmium/io/detail/read_write.hpp>
 
 #define OSMIUM_HAS_INDEX_MAP_SPARSE_MEM_MAP
 
@@ -63,7 +62,9 @@ namespace osmium {
                 // element in the map (id + value + pointers to left, right,
                 // and parent plus some overhead for color of red-black-tree
                 // or similar).
-                static constexpr size_t element_size = sizeof(TId) + sizeof(TValue) + sizeof(void*) * 4;
+                enum {
+                    element_size = sizeof(TId) + sizeof(TValue) + sizeof(void*) * 4U
+                };
 
                 std::map<TId, TValue> m_elements;
 
@@ -71,36 +72,43 @@ namespace osmium {
 
                 SparseMemMap() = default;
 
-                ~SparseMemMap() override final = default;
-
-                void set(const TId id, const TValue value) override final {
+                void set(const TId id, const TValue value) final {
                     m_elements[id] = value;
                 }
 
-                const TValue get(const TId id) const override final {
-                    try {
-                        return m_elements.at(id);
-                    } catch (std::out_of_range&) {
-                        not_found_error(id);
+                TValue get(const TId id) const final {
+                    const auto it = m_elements.find(id);
+                    if (it == m_elements.end()) {
+                        throw osmium::not_found{id};
                     }
+                    return it->second;
                 }
 
-                size_t size() const override final {
+                TValue get_noexcept(const TId id) const noexcept final {
+                    const auto it = m_elements.find(id);
+                    if (it == m_elements.end()) {
+                        return osmium::index::empty_value<TValue>();
+                    }
+                    return it->second;
+                }
+
+                size_t size() const noexcept final {
                     return m_elements.size();
                 }
 
-                size_t used_memory() const override final {
+                size_t used_memory() const noexcept final {
                     return element_size * m_elements.size();
                 }
 
-                void clear() override final {
+                void clear() final {
                     m_elements.clear();
                 }
 
-                void dump_as_list(const int fd) override final {
-                    typedef typename std::map<TId, TValue>::value_type t;
+                void dump_as_list(const int fd) final {
+                    using t = typename std::map<TId, TValue>::value_type;
                     std::vector<t> v;
-                    std::copy(m_elements.begin(), m_elements.end(), std::back_inserter(v));
+                    v.reserve(m_elements.size());
+                    std::copy(m_elements.cbegin(), m_elements.cend(), std::back_inserter(v));
                     osmium::io::detail::reliable_write(fd, reinterpret_cast<const char*>(v.data()), sizeof(t) * v.size());
                 }
 
@@ -111,5 +119,9 @@ namespace osmium {
     } // namespace index
 
 } // namespace osmium
+
+#ifdef OSMIUM_WANT_NODE_LOCATION_MAPS
+    REGISTER_MAP(osmium::unsigned_object_id_type, osmium::Location, osmium::index::map::SparseMemMap, sparse_mem_map)
+#endif
 
 #endif // OSMIUM_INDEX_MAP_SPARSE_MEM_MAP_HPP

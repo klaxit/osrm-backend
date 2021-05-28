@@ -3,9 +3,9 @@
 
 /*
 
-This file is part of Osmium (http://osmcode.org/libosmium).
+This file is part of Osmium (https://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2020 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -35,8 +35,8 @@ DEALINGS IN THE SOFTWARE.
 
 #include <osmium/handler.hpp>
 #include <osmium/index/multimap.hpp>
-#include <osmium/osm/node_ref.hpp>
 #include <osmium/osm/item_type.hpp>
+#include <osmium/osm/node_ref.hpp>
 #include <osmium/osm/relation.hpp>
 #include <osmium/osm/types.hpp>
 #include <osmium/osm/way.hpp>
@@ -46,13 +46,15 @@ namespace osmium {
     namespace handler {
 
         /**
+         * This handler updates the indexes given to the constructor with
+         * the relations between objects.
          *
          * Note: This handler will only work if either all object IDs are
          *       positive or all object IDs are negative.
          */
         class ObjectRelations : public osmium::handler::Handler {
 
-            typedef osmium::index::multimap::Multimap<unsigned_object_id_type, unsigned_object_id_type> index_type;
+            using index_type = osmium::index::multimap::Multimap<unsigned_object_id_type, unsigned_object_id_type>;
 
             index_type& m_index_n2w;
             index_type& m_index_n2r;
@@ -67,11 +69,6 @@ namespace osmium {
                 m_index_w2r(w2r),
                 m_index_r2r(r2r) {
             }
-
-            ObjectRelations(const ObjectRelations&) = delete;
-            ObjectRelations& operator=(const ObjectRelations&) = delete;
-
-            ~ObjectRelations() noexcept = default;
 
             void way(const osmium::Way& way) {
                 for (const auto& node_ref : way.nodes()) {

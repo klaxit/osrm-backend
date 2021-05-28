@@ -3,9 +3,9 @@
 
 /*
 
-This file is part of Osmium (http://osmcode.org/libosmium).
+This file is part of Osmium (https://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2020 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -33,11 +33,6 @@ DEALINGS IN THE SOFTWARE.
 
 */
 
-#include <cstddef>
-#include <stdexcept>
-#include <string>
-#include <utility>
-
 #include <osmium/geom/coordinates.hpp>
 #include <osmium/memory/collection.hpp>
 #include <osmium/memory/item.hpp>
@@ -46,7 +41,14 @@ DEALINGS IN THE SOFTWARE.
 #include <osmium/osm/location.hpp>
 #include <osmium/osm/node.hpp>
 #include <osmium/osm/node_ref.hpp>
+#include <osmium/osm/node_ref_list.hpp>
+#include <osmium/osm/types.hpp>
 #include <osmium/osm/way.hpp>
+
+#include <cstddef>
+#include <stdexcept>
+#include <string>
+#include <utility>
 
 namespace osmium {
 
@@ -61,7 +63,7 @@ namespace osmium {
 
     public:
 
-        geometry_error(const std::string& message, const char* object_type = "", osmium::object_id_type id = 0) :
+        explicit geometry_error(const std::string& message, const char* object_type = "", osmium::object_id_type id = 0) :
             std::runtime_error(message),
             m_message(message),
             m_id(id) {
@@ -89,11 +91,11 @@ namespace osmium {
             return m_id;
         }
 
-        virtual const char* what() const noexcept override {
+        const char* what() const noexcept override {
             return m_message.c_str();
         }
 
-    }; // struct geometry_error
+    }; // class geometry_error
 
     /**
      * @brief Everything related to geometry handling.
@@ -142,13 +144,13 @@ namespace osmium {
         /**
          * Geometry factory.
          */
-        template <class TGeomImpl, class TProjection = IdentityProjection>
+        template <typename TGeomImpl, typename TProjection = IdentityProjection>
         class GeometryFactory {
 
             /**
              * Add all points of an outer or inner ring to a multipolygon.
              */
-            void add_points(const osmium::OuterRing& nodes) {
+            void add_points(const osmium::NodeRefList& nodes) {
                 osmium::Location last_location;
                 for (const osmium::NodeRef& node_ref : nodes) {
                     if (last_location != node_ref.location()) {
@@ -163,32 +165,39 @@ namespace osmium {
 
         public:
 
+            GeometryFactory<TGeomImpl, TProjection>() :
+                m_projection(),
+                m_impl(m_projection.epsg()) {
+            }
+
             /**
              * Constructor for default initialized projection.
              */
-            template <class... TArgs>
-            GeometryFactory<TGeomImpl, TProjection>(TArgs&&... args) :
+            template <typename... TArgs>
+            explicit GeometryFactory<TGeomImpl, TProjection>(TArgs&&... args) :
                 m_projection(),
-                m_impl(std::forward<TArgs>(args)...) {
+                m_impl(m_projection.epsg(), std::forward<TArgs>(args)...) {
             }
 
             /**
              * Constructor for explicitly initialized projection. Note that the
              * projection is moved into the GeometryFactory.
              */
-            template <class... TArgs>
-            GeometryFactory<TGeomImpl, TProjection>(TProjection&& projection, TArgs&&... args) :
+            template <typename... TArgs>
+            explicit GeometryFactory<TGeomImpl, TProjection>(TProjection&& projection, TArgs&&... args) :
                 m_projection(std::move(projection)),
-                m_impl(std::forward<TArgs>(args)...) {
+                m_impl(m_projection.epsg(), std::forward<TArgs>(args)...) {
             }
 
-            typedef typename TGeomImpl::point_type        point_type;
-            typedef typename TGeomImpl::linestring_type   linestring_type;
-            typedef typename TGeomImpl::polygon_type      polygon_type;
-            typedef typename TGeomImpl::multipolygon_type multipolygon_type;
-            typedef typename TGeomImpl::ring_type         ring_type;
+            using projection_type   = TProjection;
 
-            int epsg() const {
+            using point_type        = typename TGeomImpl::point_type;
+            using linestring_type   = typename TGeomImpl::linestring_type;
+            using polygon_type      = typename TGeomImpl::polygon_type;
+            using multipolygon_type = typename TGeomImpl::multipolygon_type;
+            using ring_type         = typename TGeomImpl::ring_type;
+
+            int epsg() const noexcept {
                 return m_projection.epsg();
             }
 
@@ -198,7 +207,7 @@ namespace osmium {
 
             /* Point */
 
-            point_type create_point(const osmium::Location location) const {
+            point_type create_point(const osmium::Location& location) const {
                 return m_impl.make_point(m_projection(location));
             }
 
@@ -226,7 +235,7 @@ namespace osmium {
                 m_impl.linestring_start();
             }
 
-            template <class TIter>
+            template <typename TIter>
             size_t fill_linestring(TIter it, TIter end) {
                 size_t num_points = 0;
                 for (; it != end; ++it, ++num_points) {
@@ -235,7 +244,7 @@ namespace osmium {
                 return num_points;
             }
 
-            template <class TIter>
+            template <typename TIter>
             size_t fill_linestring_unique(TIter it, TIter end) {
                 size_t num_points = 0;
                 osmium::Location last_location;
@@ -258,7 +267,6 @@ namespace osmium {
                 size_t num_points = 0;
 
                 if (un == use_nodes::unique) {
-                    osmium::Location last_location;
                     switch (dir) {
                         case direction::forward:
                             num_points = fill_linestring_unique(wnl.cbegin(), wnl.cend());
@@ -279,13 +287,13 @@ namespace osmium {
                 }
 
                 if (num_points < 2) {
-                    throw osmium::geometry_error("need at least two points for linestring");
+                    throw osmium::geometry_error{"need at least two points for linestring"};
                 }
 
                 return linestring_finish(num_points);
             }
 
-            linestring_type create_linestring(const osmium::Way& way, use_nodes un=use_nodes::unique, direction dir=direction::forward) {
+            linestring_type create_linestring(const osmium::Way& way, use_nodes un = use_nodes::unique, direction dir = direction::forward) {
                 try {
                     return create_linestring(way.nodes(), un, dir);
                 } catch (osmium::geometry_error& e) {
@@ -300,7 +308,7 @@ namespace osmium {
                 m_impl.polygon_start();
             }
 
-            template <class TIter>
+            template <typename TIter>
             size_t fill_polygon(TIter it, TIter end) {
                 size_t num_points = 0;
                 for (; it != end; ++it, ++num_points) {
@@ -309,7 +317,7 @@ namespace osmium {
                 return num_points;
             }
 
-            template <class TIter>
+            template <typename TIter>
             size_t fill_polygon_unique(TIter it, TIter end) {
                 size_t num_points = 0;
                 osmium::Location last_location;
@@ -332,7 +340,6 @@ namespace osmium {
                 size_t num_points = 0;
 
                 if (un == use_nodes::unique) {
-                    osmium::Location last_location;
                     switch (dir) {
                         case direction::forward:
                             num_points = fill_polygon_unique(wnl.cbegin(), wnl.cend());
@@ -353,13 +360,13 @@ namespace osmium {
                 }
 
                 if (num_points < 4) {
-                    throw osmium::geometry_error("need at least four points for polygon");
+                    throw osmium::geometry_error{"need at least four points for polygon"};
                 }
 
                 return polygon_finish(num_points);
             }
 
-            polygon_type create_polygon(const osmium::Way& way, use_nodes un=use_nodes::unique, direction dir=direction::forward) {
+            polygon_type create_polygon(const osmium::Way& way, use_nodes un = use_nodes::unique, direction dir = direction::forward) {
                 try {
                     return create_polygon(way.nodes(), un, dir);
                 } catch (osmium::geometry_error& e) {
@@ -376,9 +383,9 @@ namespace osmium {
                     size_t num_rings = 0;
                     m_impl.multipolygon_start();
 
-                    for (auto it = area.cbegin(); it != area.cend(); ++it) {
-                        const osmium::OuterRing& ring = static_cast<const osmium::OuterRing&>(*it);
-                        if (it->type() == osmium::item_type::outer_ring) {
+                    for (const auto& item : area) {
+                        if (item.type() == osmium::item_type::outer_ring) {
+                            auto& ring = static_cast<const osmium::OuterRing&>(item);
                             if (num_polygons > 0) {
                                 m_impl.multipolygon_polygon_finish();
                             }
@@ -388,7 +395,8 @@ namespace osmium {
                             m_impl.multipolygon_outer_ring_finish();
                             ++num_rings;
                             ++num_polygons;
-                        } else if (it->type() == osmium::item_type::inner_ring) {
+                        } else if (item.type() == osmium::item_type::inner_ring) {
+                            auto& ring = static_cast<const osmium::InnerRing&>(item);
                             m_impl.multipolygon_inner_ring_start();
                             add_points(ring);
                             m_impl.multipolygon_inner_ring_finish();
@@ -398,7 +406,7 @@ namespace osmium {
 
                     // if there are no rings, this area is invalid
                     if (num_rings == 0) {
-                        throw osmium::geometry_error("area contains no rings");
+                        throw osmium::geometry_error{"invalid area"};
                     }
 
                     m_impl.multipolygon_polygon_finish();

@@ -3,9 +3,9 @@
 
 /*
 
-This file is part of Osmium (http://osmcode.org/libosmium).
+This file is part of Osmium (https://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2020 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -33,22 +33,27 @@ DEALINGS IN THE SOFTWARE.
 
 */
 
-#include <cassert>
-#include <cstdlib>
-#include <utility>
-
 #include <osmium/memory/collection.hpp>
 #include <osmium/memory/item.hpp>
+#include <osmium/memory/item_iterator.hpp>
+#include <osmium/osm/box.hpp>
 #include <osmium/osm/item_type.hpp>
+#include <osmium/osm/node_ref_list.hpp>
 #include <osmium/osm/object.hpp>
 #include <osmium/osm/types.hpp>
-#include <osmium/osm/node_ref_list.hpp>
+#include <osmium/util/compatibility.hpp>
+
+#include <cassert>
+#include <cstdlib>
+#include <iterator>
+#include <utility>
 
 namespace osmium {
 
     namespace builder {
-        template <class T> class ObjectBuilder;
-    }
+        template <typename TDerived, typename T>
+        class OSMObjectBuilder;
+    } // namespace builder
 
     /**
      * An outer ring of an Area.
@@ -59,7 +64,11 @@ namespace osmium {
 
         static constexpr osmium::item_type itemtype = osmium::item_type::outer_ring;
 
-        OuterRing():
+        constexpr static bool is_compatible_to(osmium::item_type t) noexcept {
+            return t == itemtype;
+        }
+
+        OuterRing() :
             NodeRefList(itemtype) {
         }
 
@@ -76,7 +85,11 @@ namespace osmium {
 
         static constexpr osmium::item_type itemtype = osmium::item_type::inner_ring;
 
-        InnerRing():
+        constexpr static bool is_compatible_to(osmium::item_type t) noexcept {
+            return t == itemtype;
+        }
+
+        InnerRing() :
             NodeRefList(itemtype) {
         }
 
@@ -114,7 +127,8 @@ namespace osmium {
      */
     class Area : public OSMObject {
 
-        friend class osmium::builder::ObjectBuilder<osmium::Area>;
+        template <typename TDerived, typename T>
+        friend class osmium::builder::OSMObjectBuilder;
 
         Area() :
             OSMObject(sizeof(Area), osmium::item_type::area) {
@@ -124,16 +138,24 @@ namespace osmium {
 
         static constexpr osmium::item_type itemtype = osmium::item_type::area;
 
+        constexpr static bool is_compatible_to(osmium::item_type t) noexcept {
+            return t == itemtype;
+        }
+
         /**
          * Was this area created from a way? (In contrast to areas
          * created from a relation and their members.)
+         *
+         * Complexity: Constant.
          */
         bool from_way() const noexcept {
-            return (positive_id() & 0x1) == 0;
+            return (positive_id() & 0x1U) == 0;
         }
 
         /**
          * Return the Id of the way or relation this area was created from.
+         *
+         * Complexity: Constant.
          */
         osmium::object_id_type orig_id() const noexcept {
             return osmium::area_id_to_object_id(id());
@@ -142,13 +164,15 @@ namespace osmium {
         /**
          * Count the number of outer and inner rings of this area.
          *
+         * Complexity: Linear in the number of rings.
+         *
          * @returns Pair (number outer rings, number inner rings)
          */
-        std::pair<int, int> num_rings() const {
-            std::pair<int, int> counter { 0, 0 };
+        std::pair<size_t, size_t> num_rings() const {
+            std::pair<size_t, size_t> counter{0, 0};
 
-            for (auto it = cbegin(); it != cend(); ++it) {
-                switch (it->type()) {
+            for (const auto& item : *this) {
+                switch (item.type()) {
                     case osmium::item_type::outer_ring:
                         ++counter.first;
                         break;
@@ -167,6 +191,7 @@ namespace osmium {
                     case osmium::item_type::way_node_list:
                     case osmium::item_type::relation_member_list:
                     case osmium::item_type::relation_member_list_with_full_members:
+                    case osmium::item_type::changeset_discussion:
                         assert(false && "Children of Area can only be outer/inner_ring and tag_list.");
                         break;
                 }
@@ -177,32 +202,69 @@ namespace osmium {
 
         /**
          * Check whether this area is a multipolygon, ie. whether it has more
-         * than one outer ring?
+         * than one outer ring.
          */
         bool is_multipolygon() const {
             return num_rings().first > 1;
         }
 
         /**
+         * @deprecated Use inner_rings() instead.
+         *
          * Get iterator for iterating over all inner rings in a specified outer
          * ring.
          *
          * @param it Iterator specifying outer ring.
          * @returns Iterator to first inner ring in specified outer ring.
          */
-        osmium::memory::ItemIterator<const osmium::InnerRing> inner_ring_cbegin(const osmium::memory::ItemIterator<const osmium::OuterRing>& it) const {
+        OSMIUM_DEPRECATED osmium::memory::ItemIterator<const osmium::InnerRing> inner_ring_cbegin(const osmium::memory::ItemIterator<const osmium::OuterRing>& it) const {
             return it.cast<const osmium::InnerRing>();
         }
 
         /**
+         * @deprecated Use inner_rings() instead.
+         *
          * Get iterator for iterating over all inner rings in a specified outer
          * ring.
          *
          * @param it Iterator specifying outer ring.
          * @returns Iterator one past last inner ring in specified outer ring.
          */
-        osmium::memory::ItemIterator<const osmium::InnerRing> inner_ring_cend(const osmium::memory::ItemIterator<const osmium::OuterRing>& it) const {
+        OSMIUM_DEPRECATED osmium::memory::ItemIterator<const osmium::InnerRing> inner_ring_cend(const osmium::memory::ItemIterator<const osmium::OuterRing>& it) const {
             return std::next(it).cast<const osmium::InnerRing>();
+        }
+
+        /**
+         * Return an iterator range for all outer rings.
+         * You can use the usual begin() and end() functions to iterate over
+         * all outer rings.
+         */
+        osmium::memory::ItemIteratorRange<const osmium::OuterRing> outer_rings() const {
+            return subitems<const osmium::OuterRing>();
+        }
+
+        /**
+         * Return an iterator range for all inner rings in the given outer
+         * ring.
+         * You can use the usual begin() and end() functions to iterate over
+         * all inner rings.
+         */
+        osmium::memory::ItemIteratorRange<const osmium::InnerRing> inner_rings(const osmium::OuterRing& outer) const {
+            osmium::memory::ItemIteratorRange<const osmium::OuterRing> outer_range{outer.data(), next()};
+            return osmium::memory::ItemIteratorRange<const osmium::InnerRing>{outer_range.cbegin().data(), std::next(outer_range.cbegin()).data()};
+        }
+
+        /**
+         * Calculate the envelope of this area.
+         *
+         * Complexity: Linear in the number of nodes in the outer rings.
+         */
+        osmium::Box envelope() const noexcept {
+            osmium::Box box;
+            for (const auto& ring : outer_rings()) {
+                box.extend(ring.envelope());
+            }
+            return box;
         }
 
     }; // class Area

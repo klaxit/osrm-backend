@@ -3,9 +3,9 @@
 
 /*
 
-This file is part of Osmium (http://osmcode.org/libosmium).
+This file is part of Osmium (https://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2020 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -43,7 +43,7 @@ namespace osmium {
 
     namespace detail {
 
-        template <class THandler>
+        template <typename THandler>
         inline void apply_diff_iterator_recurse(const osmium::DiffObject& diff, THandler& handler) {
             switch (diff.type()) {
                 case osmium::item_type::node:
@@ -56,11 +56,11 @@ namespace osmium {
                     handler.relation(static_cast<const osmium::DiffRelation&>(diff));
                     break;
                 default:
-                    throw osmium::unknown_type();
+                    throw osmium::unknown_type{};
             }
         }
 
-        template <class THandler, class ...TRest>
+        template <typename THandler, typename... TRest>
         inline void apply_diff_iterator_recurse(const osmium::DiffObject& diff, THandler& handler, TRest&... more) {
             apply_diff_iterator_recurse(diff, handler);
             apply_diff_iterator_recurse(diff, more...);
@@ -68,12 +68,12 @@ namespace osmium {
 
     } // namespace detail
 
-    template <class TIterator, class ...THandlers>
+    template <typename TIterator, typename... THandlers>
     inline void apply_diff(TIterator it, TIterator end, THandlers&... handlers) {
-        typedef osmium::DiffIterator<TIterator> diff_iterator;
+        using diff_iterator = osmium::DiffIterator<TIterator>;
 
-        diff_iterator dit(it, end);
-        diff_iterator dend(end, end);
+        diff_iterator dit{it, end};
+        diff_iterator dend{end, end};
 
         for (; dit != dend; ++dit) {
             detail::apply_diff_iterator_recurse(*dit, handlers...);
@@ -82,19 +82,19 @@ namespace osmium {
 
     class OSMObject;
 
-    template <class TSource, class ...THandlers>
+    template <typename TSource, typename... THandlers>
     inline void apply_diff(TSource& source, THandlers&... handlers) {
-        apply_diff(osmium::io::InputIterator<TSource, osmium::OSMObject> {source},
-                   osmium::io::InputIterator<TSource, osmium::OSMObject> {},
+        apply_diff(osmium::io::InputIterator<TSource, osmium::OSMObject>{source},
+                   osmium::io::InputIterator<TSource, osmium::OSMObject>{},
                    handlers...);
     }
 
-    template <class ...THandlers>
+    template <typename... THandlers>
     inline void apply_diff(osmium::memory::Buffer& buffer, THandlers&... handlers) {
         apply_diff(buffer.begin(), buffer.end(), handlers...);
     }
 
-    template <class ...THandlers>
+    template <typename... THandlers>
     inline void apply_diff(const osmium::memory::Buffer& buffer, THandlers&... handlers) {
         apply_diff(buffer.cbegin(), buffer.cend(), handlers...);
     }

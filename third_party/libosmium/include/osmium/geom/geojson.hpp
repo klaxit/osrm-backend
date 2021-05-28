@@ -3,9 +3,9 @@
 
 /*
 
-This file is part of Osmium (http://osmcode.org/libosmium).
+This file is part of Osmium (https://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2020 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -33,12 +33,13 @@ DEALINGS IN THE SOFTWARE.
 
 */
 
-#include <cassert>
-#include <string>
-#include <utility>
-
 #include <osmium/geom/coordinates.hpp>
 #include <osmium/geom/factory.hpp>
+
+#include <cassert>
+#include <cstddef>
+#include <string>
+#include <utility>
 
 namespace osmium {
 
@@ -53,13 +54,13 @@ namespace osmium {
 
             public:
 
-                typedef std::string point_type;
-                typedef std::string linestring_type;
-                typedef std::string polygon_type;
-                typedef std::string multipolygon_type;
-                typedef std::string ring_type;
+                using point_type        = std::string;
+                using linestring_type   = std::string;
+                using polygon_type      = std::string;
+                using multipolygon_type = std::string;
+                using ring_type         = std::string;
 
-                GeoJSONFactoryImpl(int precision = 7) :
+                explicit GeoJSONFactoryImpl(int /*srid*/, int precision = 7) :
                     m_precision(precision) {
                 }
 
@@ -67,7 +68,7 @@ namespace osmium {
 
                 // { "type": "Point", "coordinates": [100.0, 0.0] }
                 point_type make_point(const osmium::geom::Coordinates& xy) const {
-                    std::string str {"{\"type\":\"Point\",\"coordinates\":"};
+                    std::string str{"{\"type\":\"Point\",\"coordinates\":"};
                     xy.append_to_string(str, '[', ',', ']', m_precision);
                     str += "}";
                     return str;
@@ -85,12 +86,37 @@ namespace osmium {
                     m_str += ',';
                 }
 
-                linestring_type linestring_finish(size_t /* num_points */) {
+                linestring_type linestring_finish(size_t /*num_points*/) {
                     assert(!m_str.empty());
                     std::string str;
-                    std::swap(str, m_str);
+
+                    using std::swap;
+                    swap(str, m_str);
+
                     str.back() = ']';
                     str += "}";
+                    return str;
+                }
+
+                /* Polygon */
+                void polygon_start() {
+                    m_str = "{\"type\":\"Polygon\",\"coordinates\":[[";
+                }
+
+                void polygon_add_location(const osmium::geom::Coordinates& xy) {
+                    xy.append_to_string(m_str, '[', ',', ']', m_precision);
+                    m_str += ',';
+                }
+
+                polygon_type polygon_finish(size_t /*num_points*/) {
+                    assert(!m_str.empty());
+                    std::string str;
+
+                    using std::swap;
+                    swap(str, m_str);
+
+                    str.back() = ']';
+                    str += "]}";
                     return str;
                 }
 
@@ -134,7 +160,10 @@ namespace osmium {
                 multipolygon_type multipolygon_finish() {
                     assert(!m_str.empty());
                     std::string str;
-                    std::swap(str, m_str);
+
+                    using std::swap;
+                    swap(str, m_str);
+
                     str.back() = ']';
                     str += "}";
                     return str;
@@ -144,7 +173,7 @@ namespace osmium {
 
         } // namespace detail
 
-        template <class TProjection = IdentityProjection>
+        template <typename TProjection = IdentityProjection>
         using GeoJSONFactory = GeometryFactory<osmium::geom::detail::GeoJSONFactoryImpl, TProjection>;
 
     } // namespace geom

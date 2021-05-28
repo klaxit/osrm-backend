@@ -3,9 +3,9 @@
 
 /*
 
-This file is part of Osmium (http://osmcode.org/libosmium).
+This file is part of Osmium (https://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2020 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -33,8 +33,6 @@ DEALINGS IN THE SOFTWARE.
 
 */
 
-#include <cstddef>
-
 #include <osmium/handler.hpp>
 #include <osmium/index/map.hpp>
 #include <osmium/io/detail/read_write.hpp>
@@ -46,20 +44,25 @@ DEALINGS IN THE SOFTWARE.
 #include <osmium/osm/way.hpp>
 #include <osmium/visitor.hpp>
 
+#include <cstddef>
+
 namespace osmium {
 
     namespace handler {
 
         /**
+         * Writes OSM data in the Osmium-internal serialized format to disk
+         * keeping track of object offsets in the indexes given to the
+         * constructor.
          *
          * Note: This handler will only work if either all object IDs are
          *       positive or all object IDs are negative.
          */
         class DiskStore : public osmium::handler::Handler {
 
-            typedef osmium::index::map::Map<unsigned_object_id_type, size_t> offset_index_type;
+            using offset_index_type = osmium::index::map::Map<unsigned_object_id_type, std::size_t>;
 
-            size_t m_offset = 0;
+            std::size_t m_offset = 0;
             int m_data_fd;
 
             offset_index_type& m_node_index;
@@ -74,11 +77,6 @@ namespace osmium {
                 m_way_index(way_index),
                 m_relation_index(relation_index) {
             }
-
-            DiskStore(const DiskStore&) = delete;
-            DiskStore& operator=(const DiskStore&) = delete;
-
-            ~DiskStore() noexcept = default;
 
             void node(const osmium::Node& node) {
                 m_node_index.set(node.positive_id(), m_offset);
@@ -95,10 +93,8 @@ namespace osmium {
                 m_offset += relation.byte_size();
             }
 
-            // XXX
             void operator()(const osmium::memory::Buffer& buffer) {
                 osmium::io::detail::reliable_write(m_data_fd, buffer.data(), buffer.committed());
-
                 osmium::apply(buffer.begin(), buffer.end(), *this);
             }
 
