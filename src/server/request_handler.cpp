@@ -155,6 +155,7 @@ void RequestHandler::HandleRequest(const http::request &current_request, http::r
             ltime = time(nullptr);
             time_stamp = localtime(&ltime);
             // log timestamp
+            // improve request logs(klaxit)
             util::Log() << (time_stamp->tm_mday < 10 ? "0" : "") << time_stamp->tm_mday << "-"
                         << (time_stamp->tm_mon + 1 < 10 ? "0" : "") << (time_stamp->tm_mon + 1)
                         << "-" << 1900 + time_stamp->tm_year << " "
