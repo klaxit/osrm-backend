@@ -3,9 +3,9 @@
 
 /*
 
-This file is part of Osmium (http://osmcode.org/libosmium).
+This file is part of Osmium (https://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2020 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -33,14 +33,14 @@ DEALINGS IN THE SOFTWARE.
 
 */
 
+#include <osmium/index/multimap.hpp>
+#include <osmium/io/detail/read_write.hpp>
+
 #include <algorithm>
 #include <cstddef>
 #include <map>
 #include <utility>
 #include <vector>
-
-#include <osmium/index/multimap.hpp>
-#include <osmium/io/detail/read_write.hpp>
 
 namespace osmium {
 
@@ -53,22 +53,23 @@ namespace osmium {
              * lot of memory, but might make sense for small maps.
              */
             template <typename TId, typename TValue>
-            class SparseMemMultimap : public osmium::index::multimap::Multimap<TId, TValue> {
+            class SparseMemMultimap final : public osmium::index::multimap::Multimap<TId, TValue> {
 
                 // This is a rough estimate for the memory needed for each
                 // element in the map (id + value + pointers to left, right,
                 // and parent plus some overhead for color of red-black-tree
                 // or similar).
-                static constexpr size_t element_size = sizeof(TId) + sizeof(TValue) + sizeof(void*) * 4;
+                enum {
+                    element_size = sizeof(TId) + sizeof(TValue) + sizeof(void*) * 4u
+                };
 
             public:
 
-                typedef typename std::multimap<const TId, TValue> collection_type;
-                typedef typename collection_type::iterator iterator;
-                typedef typename collection_type::const_iterator const_iterator;
-                typedef typename collection_type::value_type value_type;
-
-                typedef typename std::pair<TId, TValue> element_type;
+                using collection_type = typename std::multimap<const TId, TValue>;
+                using iterator        = typename collection_type::iterator;
+                using const_iterator  = typename collection_type::const_iterator;
+                using value_type      = typename collection_type::value_type;
+                using element_type    = typename std::pair<TId, TValue>;
 
             private:
 
@@ -78,13 +79,13 @@ namespace osmium {
 
                 SparseMemMultimap() = default;
 
-                ~SparseMemMultimap() noexcept override final = default;
+                ~SparseMemMultimap() noexcept = default;
 
                 void unsorted_set(const TId id, const TValue value) {
                     m_elements.emplace(id, value);
                 }
 
-                void set(const TId id, const TValue value) override final {
+                void set(const TId id, const TValue value) override {
                     m_elements.emplace(id, value);
                 }
 
@@ -114,15 +115,15 @@ namespace osmium {
                     return m_elements.end();
                 }
 
-                size_t size() const override final {
+                size_t size() const override {
                     return m_elements.size();
                 }
 
-                size_t used_memory() const override final {
+                size_t used_memory() const override {
                     return element_size * m_elements.size();
                 }
 
-                void clear() override final {
+                void clear() override {
                     m_elements.clear();
                 }
 
@@ -130,12 +131,12 @@ namespace osmium {
                     // intentionally left blank
                 }
 
-                void dump_as_list(const int fd) override final {
+                void dump_as_list(const int fd) override {
                     std::vector<element_type> v;
+                    v.reserve(m_elements.size());
                     for (const auto& element : m_elements) {
                         v.emplace_back(element.first, element.second);
                     }
-//                    std::copy(m_elements.cbegin(), m_elements.cend(), std::back_inserter(v));
                     std::sort(v.begin(), v.end());
                     osmium::io::detail::reliable_write(fd, reinterpret_cast<const char*>(v.data()), sizeof(element_type) * v.size());
                 }

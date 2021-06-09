@@ -3,9 +3,9 @@
 
 /*
 
-This file is part of Osmium (http://osmcode.org/libosmium).
+This file is part of Osmium (https://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2020 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -33,7 +33,7 @@ DEALINGS IN THE SOFTWARE.
 
 */
 
-#include <protozero/pbf_types.hpp>
+#include <protozero/types.hpp>
 
 namespace osmium {
 
@@ -146,7 +146,9 @@ namespace osmium {
                     packed_uint32_keys = 2,
                     packed_uint32_vals = 3,
                     optional_Info_info = 4,
-                    packed_sint64_refs = 8
+                    packed_sint64_refs = 8,
+                    packed_sint64_lat  = 9,
+                    packed_sint64_lon  = 10
                 };
 
                 enum class Relation : protozero::pbf_tag_type {
@@ -167,4 +169,4 @@ namespace osmium {
 
 } // namespace osmium
 
-#endif //  OSMIUM_IO_DETAIL_PROTOBUF_TAGS_HPP
+#endif // OSMIUM_IO_DETAIL_PROTOBUF_TAGS_HPP

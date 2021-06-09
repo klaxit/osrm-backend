@@ -3,9 +3,9 @@
 
 /*
 
-This file is part of Osmium (http://osmcode.org/libosmium).
+This file is part of Osmium (https://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2020 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -33,17 +33,11 @@ DEALINGS IN THE SOFTWARE.
 
 */
 
-#include <string>
-
-// needed for htonl and ntohl
-#ifndef _WIN32
-# include <netinet/in.h>
-#else
-# include <winsock2.h>
-#endif
-
 #include <osmium/io/error.hpp>
 #include <osmium/osm/location.hpp>
+
+#include <cstdint>
+#include <string>
 
 namespace osmium {
 
@@ -53,11 +47,11 @@ namespace osmium {
      */
     struct pbf_error : public io_error {
 
-        pbf_error(const std::string& what) :
+        explicit pbf_error(const std::string& what) :
             io_error(std::string("PBF error: ") + what) {
         }
 
-        pbf_error(const char* what) :
+        explicit pbf_error(const char* what) :
             io_error(std::string("PBF error: ") + what) {
         }
 
@@ -77,11 +71,11 @@ namespace osmium {
             // between representation as double and as int
             const int64_t lonlat_resolution = 1000 * 1000 * 1000;
 
-            const int64_t resolution_convert = lonlat_resolution / osmium::Location::coordinate_precision;
+            const int64_t resolution_convert = lonlat_resolution / osmium::detail::coordinate_precision;
 
-        }
+        } // namespace detail
 
-    }
+    } // namespace io
 
 } // namespace osmium
 

@@ -3,9 +3,9 @@
 
 /*
 
-This file is part of Osmium (http://osmcode.org/libosmium).
+This file is part of Osmium (https://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2020 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -33,8 +33,8 @@ DEALINGS IN THE SOFTWARE.
 
 */
 
+#include <cstddef>
 #include <cstdint>
-#include <type_traits>
 
 namespace osmium {
 
@@ -43,18 +43,25 @@ namespace osmium {
 
     namespace builder {
         class Builder;
-    }
+    } // namespace builder
+
+    enum class diff_indicator_type {
+        none  = 0,
+        left  = 1,
+        right = 2,
+        both  = 3
+    }; // diff_indicator_type
 
     namespace memory {
 
-        typedef uint32_t item_size_type;
+        using item_size_type = uint32_t;
 
         // align datastructures to this many bytes
-        constexpr item_size_type align_bytes = 8;
+        enum : std::size_t {
+            align_bytes = 8UL
+        };
 
-        template <typename T>
-        inline T padded_length(T length) noexcept {
-            static_assert(std::is_integral<T>::value && std::is_unsigned<T>::value, "Template parameter must be unsigned integral type");
+        inline constexpr std::size_t padded_length(std::size_t length) noexcept {
             return (length + align_bytes - 1) & ~(align_bytes - 1);
         }
 
@@ -71,15 +78,15 @@ namespace osmium {
 
             protected:
 
-                ItemHelper() = default;
+                ItemHelper() noexcept = default;
 
-                ~ItemHelper() = default;
+                ItemHelper(const ItemHelper&) noexcept = default;
+                ItemHelper(ItemHelper&&) noexcept = default;
 
-                ItemHelper(const ItemHelper&) = default;
-                ItemHelper(ItemHelper&&) = default;
+                ItemHelper& operator=(const ItemHelper&) noexcept = default;
+                ItemHelper& operator=(ItemHelper&&) noexcept = default;
 
-                ItemHelper& operator=(const ItemHelper&) = default;
-                ItemHelper& operator=(ItemHelper&&) = default;
+                ~ItemHelper() noexcept = default;
 
             public:
 
@@ -100,12 +107,13 @@ namespace osmium {
             item_size_type m_size;
             item_type m_type;
             uint16_t m_removed : 1;
-            uint16_t m_padding : 15;
+            uint16_t m_diff : 2;
+            uint16_t m_padding : 13;
 
-            template <class TMember>
+            template <typename TMember>
             friend class CollectionIterator;
 
-            template <class TMember>
+            template <typename TMember>
             friend class ItemIterator;
 
             friend class osmium::builder::Builder;
@@ -117,18 +125,13 @@ namespace osmium {
 
         protected:
 
-            explicit Item(item_size_type size = 0, item_type type = item_type()) noexcept :
+            explicit Item(item_size_type size = 0, item_type type = item_type{}) noexcept :
                 m_size(size),
                 m_type(type),
                 m_removed(false),
+                m_diff(0),
                 m_padding(0) {
             }
-
-            Item(const Item&) = delete;
-            Item(Item&&) = delete;
-
-            Item& operator=(const Item&) = delete;
-            Item& operator=(Item&&) = delete;
 
             Item& set_type(const item_type item_type) noexcept {
                 m_type = item_type;
@@ -136,6 +139,18 @@ namespace osmium {
             }
 
         public:
+
+            Item(const Item&) = delete;
+            Item& operator=(const Item&) = delete;
+
+            Item(Item&&) = delete;
+            Item& operator=(Item&&) = delete;
+
+            ~Item() noexcept = default;
+
+            constexpr static bool is_compatible_to(osmium::item_type /*t*/) noexcept {
+                return true;
+            }
 
             unsigned char* next() noexcept {
                 return data() + padded_size();
@@ -150,7 +165,7 @@ namespace osmium {
             }
 
             item_size_type padded_size() const {
-                return padded_length(m_size);
+                return static_cast<item_size_type>(padded_length(m_size));
             }
 
             item_type type() const noexcept {
@@ -161,8 +176,21 @@ namespace osmium {
                 return m_removed;
             }
 
-            void set_removed(bool removed) noexcept {
+            void set_removed(const bool removed) noexcept {
                 m_removed = removed;
+            }
+
+            diff_indicator_type diff() const noexcept {
+                return diff_indicator_type(m_diff);
+            }
+
+            char diff_as_char() const noexcept {
+                static constexpr const char* diff_chars = "*-+ ";
+                return diff_chars[m_diff];
+            }
+
+            void set_diff(const diff_indicator_type diff) noexcept {
+                m_diff = uint16_t(diff);
             }
 
         }; // class Item

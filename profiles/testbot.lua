@@ -1,51 +1,43 @@
 -- Testbot profile
 
 -- Moves at fixed, well-known speeds, practical for testing speed and travel times:
-
 -- Primary road:  36km/h = 36000m/3600s = 100m/10s
 -- Secondary road:  18km/h = 18000m/3600s = 100m/20s
 -- Tertiary road:  12km/h = 12000m/3600s = 100m/30s
 
--- modes:
--- 1: normal
--- 2: route
--- 3: river downstream
--- 4: river upstream
--- 5: steps down
--- 6: steps up
+api_version = 4
 
-speed_profile = {
-  ["primary"] = 36,
-  ["secondary"] = 18,
-  ["tertiary"] = 12,
-  ["steps"] = 6,
-  ["default"] = 24
-}
+function setup()
+  return {
+    properties = {
+      continue_straight_at_waypoint = true,
+      max_speed_for_map_matching    = 30/3.6, --km -> m/s
+      weight_name                   = 'duration',
+      process_call_tagless_node     = false,
+      u_turn_penalty                 = 20,
+      traffic_light_penalty         = 7,     -- seconds
+      use_turn_restrictions         = true
+    },
 
--- these settings are read directly by osrm
+    classes = {"motorway", "toll", "TooWords2"},
 
-take_minimum_of_speeds  = true
-obey_oneway             = true
-obey_barriers           = true
-use_turn_restrictions   = true
-ignore_areas            = true  -- future feature
-traffic_signal_penalty  = 7     -- seconds
-u_turn_penalty          = 20
+    excludable = {
+        {["motorway"] = true},
+        {["toll"] = true},
+        {["motorway"] = true, ["toll"] = true}
+    },
 
-function limit_speed(speed, limits)
-  -- don't use ipairs(), since it stops at the first nil value
-  for i=1, #limits do
-    limit = limits[i]
-    if limit ~= nil and limit > 0 then
-      if limit < speed then
-        return limit        -- stop at first speedlimit that's smaller than speed
-      end
-    end
-  end
-  return speed
+    default_speed  = 24,
+    speeds = {
+      primary = 36,
+      secondary = 18,
+      tertiary = 12,
+      steps = 6
+    }
+  }
 end
 
-function node_function (node, result)
+function process_node (profile, node, result)
   local traffic_signal = node:get_value_by_key("highway")
 
   if traffic_signal and traffic_signal == "traffic_signals" then
@@ -54,8 +46,9 @@ function node_function (node, result)
   end
 end
 
-function way_function (way, result)
+function process_way (profile, way, result)
   local highway = way:get_value_by_key("highway")
+  local toll = way:get_value_by_key("toll")
   local name = way:get_value_by_key("name")
   local oneway = way:get_value_by_key("oneway")
   local route = way:get_value_by_key("route")
@@ -69,23 +62,26 @@ function way_function (way, result)
     result.name = name
   end
 
+  result.forward_mode = mode.driving
+  result.backward_mode = mode.driving
+
   if duration and durationIsValid(duration) then
     result.duration = math.max( 1, parseDuration(duration) )
-    result.forward_mode = 2
-    result.backward_mode = 2
+    result.forward_mode = mode.route
+    result.backward_mode = mode.route
   else
-    local speed_forw = speed_profile[highway] or speed_profile['default']
+    local speed_forw = profile.speeds[highway] or profile.default_speed
     local speed_back = speed_forw
 
     if highway == "river" then
       local temp_speed = speed_forw
-      result.forward_mode = 3
-      result.backward_mode = 4
+      result.forward_mode = mode.river_down
+      result.backward_mode = mode.river_up
       speed_forw = temp_speed*1.5
       speed_back = temp_speed/1.5
     elseif highway == "steps" then
-      result.forward_mode = 5
-      result.backward_mode = 6
+      result.forward_mode = mode.steps_down
+      result.backward_mode = mode.steps_up
     end
 
     if maxspeed_forward ~= nil and maxspeed_forward > 0 then
@@ -111,12 +107,39 @@ function way_function (way, result)
   if oneway == "no" or oneway == "0" or oneway == "false" then
     -- nothing to do
   elseif oneway == "-1" then
-    result.forward_mode = 0
+    result.forward_mode = mode.inaccessible
   elseif oneway == "yes" or oneway == "1" or oneway == "true" or junction == "roundabout" then
-    result.backward_mode = 0
+    result.backward_mode = mode.inaccessible
+  end
+
+  if highway == 'motorway' then
+      result.forward_classes["motorway"] = true
+      result.backward_classes["motorway"] = true
+  end
+
+  if toll == "yes" then
+      result.forward_classes["toll"] = true
+      result.backward_classes["toll"] = true
   end
 
   if junction == 'roundabout' then
     result.roundabout = true
   end
 end
+
+function process_turn (profile, turn)
+  if turn.is_u_turn then
+    turn.duration = turn.duration + profile.properties.u_turn_penalty
+    turn.weight = turn.weight + profile.properties.u_turn_penalty
+  end
+  if turn.has_traffic_light then
+     turn.duration = turn.duration + profile.properties.traffic_light_penalty
+  end
+end
+
+return {
+  setup = setup,
+  process_way = process_way,
+  process_node = process_node,
+  process_turn = process_turn
+}

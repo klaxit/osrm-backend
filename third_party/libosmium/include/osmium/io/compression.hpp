@@ -3,9 +3,9 @@
 
 /*
 
-This file is part of Osmium (http://osmcode.org/libosmium).
+This file is part of Osmium (https://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2020 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -33,24 +33,22 @@ DEALINGS IN THE SOFTWARE.
 
 */
 
+#include <osmium/io/detail/read_write.hpp>
+#include <osmium/io/error.hpp>
+#include <osmium/io/file_compression.hpp>
+#include <osmium/io/writer_options.hpp>
+#include <osmium/util/file.hpp>
+
+#include <atomic>
 #include <cerrno>
+#include <cstddef>
 #include <functional>
 #include <map>
 #include <memory>
-#include <stdexcept>
 #include <string>
 #include <system_error>
+#include <tuple>
 #include <utility>
-
-#ifndef _MSC_VER
-# include <unistd.h>
-#else
-# include <io.h>
-#endif
-
-#include <osmium/io/detail/read_write.hpp>
-#include <osmium/io/file_compression.hpp>
-#include <osmium/util/compatibility.hpp>
 
 namespace osmium {
 
@@ -58,12 +56,27 @@ namespace osmium {
 
         class Compressor {
 
+            fsync m_fsync;
+
+        protected:
+
+            bool do_fsync() const noexcept {
+                return m_fsync == fsync::yes;
+            }
+
         public:
 
-            Compressor() = default;
-
-            virtual ~Compressor() {
+            explicit Compressor(const fsync sync) noexcept :
+                m_fsync(sync) {
             }
+
+            Compressor(const Compressor&) = default;
+            Compressor& operator=(const Compressor&) = default;
+
+            Compressor(Compressor&&) noexcept = default;
+            Compressor& operator=(Compressor&&) noexcept = default;
+
+            virtual ~Compressor() noexcept = default;
 
             virtual void write(const std::string& data) = 0;
 
@@ -73,9 +86,14 @@ namespace osmium {
 
         class Decompressor {
 
+            std::atomic<std::size_t> m_file_size{0};
+            std::atomic<std::size_t> m_offset{0};
+
         public:
 
-            static constexpr unsigned int input_buffer_size = 1024 * 1024;
+            enum {
+                input_buffer_size = 1024U * 1024U
+            };
 
             Decompressor() = default;
 
@@ -85,12 +103,26 @@ namespace osmium {
             Decompressor(Decompressor&&) = delete;
             Decompressor& operator=(Decompressor&&) = delete;
 
-            virtual ~Decompressor() {
-            }
+            virtual ~Decompressor() noexcept = default;
 
             virtual std::string read() = 0;
 
-            virtual void close() {
+            virtual void close() = 0;
+
+            std::size_t file_size() const noexcept {
+                return m_file_size;
+            }
+
+            void set_file_size(const std::size_t size) noexcept {
+                m_file_size = size;
+            }
+
+            std::size_t offset() const noexcept {
+                return m_offset;
+            }
+
+            void set_offset(const std::size_t offset) noexcept {
+                m_offset = offset;
             }
 
         }; // class Decompressor
@@ -106,17 +138,36 @@ namespace osmium {
 
         public:
 
-            typedef std::function<osmium::io::Compressor*(int)> create_compressor_type;
-            typedef std::function<osmium::io::Decompressor*(int)> create_decompressor_type_fd;
-            typedef std::function<osmium::io::Decompressor*(const char*, size_t)> create_decompressor_type_buffer;
+            using create_compressor_type          = std::function<osmium::io::Compressor*(int, fsync)>;
+            using create_decompressor_type_fd     = std::function<osmium::io::Decompressor*(int)>;
+            using create_decompressor_type_buffer = std::function<osmium::io::Decompressor*(const char*, std::size_t)>;
 
         private:
 
-            typedef std::map<const osmium::io::file_compression, std::tuple<create_compressor_type, create_decompressor_type_fd, create_decompressor_type_buffer>> compression_map_type;
+            using callbacks_type = std::tuple<create_compressor_type,
+                                              create_decompressor_type_fd,
+                                              create_decompressor_type_buffer>;
+
+            using compression_map_type = std::map<const osmium::io::file_compression, callbacks_type>;
 
             compression_map_type m_callbacks;
 
             CompressionFactory() = default;
+
+            const callbacks_type& find_callbacks(const osmium::io::file_compression compression) const {
+                const auto it = m_callbacks.find(compression);
+
+                if (it != m_callbacks.end()) {
+                    return it->second;
+                }
+
+                std::string error_message{"Support for compression '"};
+                error_message += as_string(compression);
+                error_message += "' not compiled into this binary";
+                throw unsupported_file_format_error{error_message};
+            }
+
+        public:
 
             CompressionFactory(const CompressionFactory&) = delete;
             CompressionFactory& operator=(const CompressionFactory&) = delete;
@@ -124,14 +175,7 @@ namespace osmium {
             CompressionFactory(CompressionFactory&&) = delete;
             CompressionFactory& operator=(CompressionFactory&&) = delete;
 
-            OSMIUM_NORETURN void error(osmium::io::file_compression compression) {
-                std::string error_message {"Support for compression '"};
-                error_message += as_string(compression);
-                error_message += "' not compiled into this binary.";
-                throw std::runtime_error(error_message);
-            }
-
-        public:
+            ~CompressionFactory() noexcept = default;
 
             static CompressionFactory& instance() {
                 static CompressionFactory factory;
@@ -140,144 +184,165 @@ namespace osmium {
 
             bool register_compression(
                 osmium::io::file_compression compression,
-                create_compressor_type create_compressor,
-                create_decompressor_type_fd create_decompressor_fd,
-                create_decompressor_type_buffer create_decompressor_buffer) {
+                const create_compressor_type& create_compressor,
+                const create_decompressor_type_fd& create_decompressor_fd,
+                const create_decompressor_type_buffer& create_decompressor_buffer) {
 
-                compression_map_type::value_type cc(compression, std::make_tuple(create_compressor, create_decompressor_fd, create_decompressor_buffer));
+                compression_map_type::value_type cc{compression,
+                                                    std::make_tuple(create_compressor,
+                                                                    create_decompressor_fd,
+                                                                    create_decompressor_buffer)};
+
                 return m_callbacks.insert(cc).second;
             }
 
-            std::unique_ptr<osmium::io::Compressor> create_compressor(osmium::io::file_compression compression, int fd) {
-                auto it = m_callbacks.find(compression);
-
-                if (it != m_callbacks.end()) {
-                    return std::unique_ptr<osmium::io::Compressor>(std::get<0>(it->second)(fd));
-                }
-
-                error(compression);
+            template <typename... TArgs>
+            std::unique_ptr<osmium::io::Compressor> create_compressor(const osmium::io::file_compression compression, TArgs&&... args) const {
+                const auto callbacks = find_callbacks(compression);
+                return std::unique_ptr<osmium::io::Compressor>(std::get<0>(callbacks)(std::forward<TArgs>(args)...));
             }
 
-            std::unique_ptr<osmium::io::Decompressor> create_decompressor(osmium::io::file_compression compression, int fd) {
-                auto it = m_callbacks.find(compression);
-
-                if (it != m_callbacks.end()) {
-                    return std::unique_ptr<osmium::io::Decompressor>(std::get<1>(it->second)(fd));
-                }
-
-                error(compression);
+            std::unique_ptr<osmium::io::Decompressor> create_decompressor(const osmium::io::file_compression compression, const int fd) const {
+                const auto callbacks = find_callbacks(compression);
+                auto p = std::unique_ptr<osmium::io::Decompressor>(std::get<1>(callbacks)(fd));
+                p->set_file_size(osmium::file_size(fd));
+                return p;
             }
 
-            std::unique_ptr<osmium::io::Decompressor> create_decompressor(osmium::io::file_compression compression, const char* buffer, size_t size) {
-                auto it = m_callbacks.find(compression);
-
-                if (it != m_callbacks.end()) {
-                    return std::unique_ptr<osmium::io::Decompressor>(std::get<2>(it->second)(buffer, size));
-                }
-
-                error(compression);
+            std::unique_ptr<osmium::io::Decompressor> create_decompressor(const osmium::io::file_compression compression, const char* buffer, const std::size_t size) const {
+                const auto callbacks = find_callbacks(compression);
+                return std::unique_ptr<osmium::io::Decompressor>(std::get<2>(callbacks)(buffer, size));
             }
 
         }; // class CompressionFactory
 
-        class NoCompressor : public Compressor {
+        class NoCompressor final : public Compressor {
 
             int m_fd;
 
         public:
 
-            NoCompressor(int fd) :
-                Compressor(),
+            NoCompressor(const int fd, const fsync sync) :
+                Compressor(sync),
                 m_fd(fd) {
             }
 
-            ~NoCompressor() override final {
-                close();
+            NoCompressor(const NoCompressor&) = delete;
+            NoCompressor& operator=(const NoCompressor&) = delete;
+
+            NoCompressor(NoCompressor&&) = delete;
+            NoCompressor& operator=(NoCompressor&&) = delete;
+
+            ~NoCompressor() noexcept {
+                try {
+                    close();
+                } catch (...) {
+                    // Ignore any exceptions because destructor must not throw.
+                }
             }
 
-            void write(const std::string& data) override final {
+            void write(const std::string& data) override {
                 osmium::io::detail::reliable_write(m_fd, data.data(), data.size());
             }
 
-            void close() override final {
+            void close() override {
                 if (m_fd >= 0) {
-                    ::close(m_fd);
+                    const int fd = m_fd;
                     m_fd = -1;
+
+                    // Do not sync or close stdout
+                    if (fd == 1) {
+                        return;
+                    }
+
+                    if (do_fsync()) {
+                        osmium::io::detail::reliable_fsync(fd);
+                    }
+                    osmium::io::detail::reliable_close(fd);
                 }
             }
 
         }; // class NoCompressor
 
-        class NoDecompressor : public Decompressor {
+        class NoDecompressor final : public Decompressor {
 
-            int m_fd;
-            const char *m_buffer;
-            size_t m_buffer_size;
+            int m_fd = -1;
+            const char* m_buffer = nullptr;
+            std::size_t m_buffer_size = 0;
+            std::size_t m_offset = 0;
 
         public:
 
-            NoDecompressor(int fd) :
-                Decompressor(),
-                m_fd(fd),
-                m_buffer(nullptr),
-                m_buffer_size(0) {
+            explicit NoDecompressor(const int fd) :
+                m_fd(fd) {
             }
 
-            NoDecompressor(const char* buffer, size_t size) :
-                Decompressor(),
-                m_fd(-1),
+            NoDecompressor(const char* buffer, const std::size_t size) :
                 m_buffer(buffer),
                 m_buffer_size(size) {
             }
 
-            ~NoDecompressor() override final {
-                close();
+            NoDecompressor(const NoDecompressor&) = delete;
+            NoDecompressor& operator=(const NoDecompressor&) = delete;
+
+            NoDecompressor(NoDecompressor&&) = delete;
+            NoDecompressor& operator=(NoDecompressor&&) = delete;
+
+            ~NoDecompressor() noexcept {
+                try {
+                    close();
+                } catch (...) {
+                    // Ignore any exceptions because destructor must not throw.
+                }
             }
 
-            std::string read() override final {
+            std::string read() override {
                 std::string buffer;
 
                 if (m_buffer) {
                     if (m_buffer_size != 0) {
-                        size_t size = m_buffer_size;
+                        const std::size_t size = m_buffer_size;
                         m_buffer_size = 0;
                         buffer.append(m_buffer, size);
                     }
                 } else {
                     buffer.resize(osmium::io::Decompressor::input_buffer_size);
-                    auto nread = ::read(m_fd, const_cast<char*>(buffer.data()), osmium::io::Decompressor::input_buffer_size);
-                    if (nread < 0) {
-                        throw std::system_error(errno, std::system_category(), "Read failed");
-                    }
-                    buffer.resize(nread);
+                    const auto nread = detail::reliable_read(m_fd, &*buffer.begin(), osmium::io::Decompressor::input_buffer_size);
+                    buffer.resize(std::string::size_type(nread));
                 }
+
+                m_offset += buffer.size();
+                set_offset(m_offset);
 
                 return buffer;
             }
 
-            void close() override final {
+            void close() override {
                 if (m_fd >= 0) {
-                    ::close(m_fd);
+                    const int fd = m_fd;
                     m_fd = -1;
+                    osmium::io::detail::reliable_close(fd);
                 }
             }
 
         }; // class NoDecompressor
 
-        namespace {
+        namespace detail {
 
-// we want the register_compression() function to run, setting the variable
-// is only a side-effect, it will never be used
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-variable"
+            // we want the register_compression() function to run, setting
+            // the variable is only a side-effect, it will never be used
             const bool registered_no_compression = osmium::io::CompressionFactory::instance().register_compression(osmium::io::file_compression::none,
-                [](int fd) { return new osmium::io::NoCompressor(fd); },
-                [](int fd) { return new osmium::io::NoDecompressor(fd); },
-                [](const char* buffer, size_t size) { return new osmium::io::NoDecompressor(buffer, size); }
+                [](const int fd, const fsync sync) { return new osmium::io::NoCompressor{fd, sync}; },
+                [](const int fd) { return new osmium::io::NoDecompressor{fd}; },
+                [](const char* buffer, std::size_t size) { return new osmium::io::NoDecompressor{buffer, size}; }
             );
-#pragma GCC diagnostic pop
 
-        } // anonymous namespace
+            // dummy function to silence the unused variable warning from above
+            inline bool get_registered_no_compression() noexcept {
+                return registered_no_compression;
+            }
+
+        } // namespace detail
 
     } // namespace io
 

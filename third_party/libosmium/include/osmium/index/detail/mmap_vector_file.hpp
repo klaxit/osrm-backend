@@ -3,9 +3,9 @@
 
 /*
 
-This file is part of Osmium (http://osmcode.org/libosmium).
+This file is part of Osmium (https://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2020 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -37,6 +37,11 @@ DEALINGS IN THE SOFTWARE.
 #include <osmium/index/detail/tmpfile.hpp>
 #include <osmium/util/file.hpp>
 
+#include <algorithm>
+#include <cstddef>
+#include <stdexcept>
+#include <string>
+
 namespace osmium {
 
     namespace detail {
@@ -48,17 +53,29 @@ namespace osmium {
         template <typename T>
         class mmap_vector_file : public mmap_vector_base<T> {
 
+            static std::size_t filesize(const int fd) {
+                const auto size = osmium::file_size(fd);
+
+                if (size % sizeof(T) != 0) {
+                    throw std::runtime_error{"Index file has wrong size (must be multiple of " + std::to_string(sizeof(T)) + ")."};
+                }
+
+                return size / sizeof(T);
+            }
+
         public:
 
-            explicit mmap_vector_file() : mmap_vector_base<T>(
+            mmap_vector_file() :
+                mmap_vector_base<T>(
                     osmium::detail::create_tmp_file(),
                     osmium::detail::mmap_vector_size_increment) {
             }
 
-            explicit mmap_vector_file(int fd) : mmap_vector_base<T>(
+            explicit mmap_vector_file(const int fd) :
+                mmap_vector_base<T>(
                     fd,
-                    osmium::util::file_size(fd) / sizeof(T),
-                    osmium::util::file_size(fd) / sizeof(T)) {
+                    std::max(static_cast<std::size_t>(mmap_vector_size_increment), filesize(fd)),
+                    filesize(fd)) {
             }
 
         }; // class mmap_vector_file

@@ -1,10 +1,10 @@
 
-#include <iostream>
-#include <string>
-
 #define CATCH_CONFIG_RUNNER
 
 #include "testdata-testcases.hpp"
+
+#include <iostream>
+#include <string>
 
 std::string dirname;
 
@@ -15,11 +15,14 @@ int main(int argc, char* argv[]) {
         std::cerr << "Running tests from '" << dirname << "' (from TESTCASES_DIR environment variable)\n";
     } else {
         std::cerr << "Please set TESTCASES_DIR environment variable.\n";
-        exit(1);
+        std::exit(1);
     }
 
-    int result = Catch::Session().run(argc, argv);
-
-    return result;
+    try {
+        return Catch::Session().run(argc, argv);
+    } catch (const std::exception& e) {
+        std::cerr << e.what() << '\n';
+        std::exit(1);
+    }
 }
 

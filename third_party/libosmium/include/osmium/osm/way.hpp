@@ -3,9 +3,9 @@
 
 /*
 
-This file is part of Osmium (http://osmcode.org/libosmium).
+This file is part of Osmium (https://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2020 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -33,18 +33,21 @@ DEALINGS IN THE SOFTWARE.
 
 */
 
+#include <osmium/memory/collection.hpp>
 #include <osmium/memory/item.hpp>
+#include <osmium/osm/box.hpp>
+#include <osmium/osm/entity.hpp>
 #include <osmium/osm/item_type.hpp>
-#include <osmium/osm/object.hpp>
-#include <osmium/osm/types.hpp>
 #include <osmium/osm/node_ref.hpp>
 #include <osmium/osm/node_ref_list.hpp>
+#include <osmium/osm/object.hpp>
 
 namespace osmium {
 
     namespace builder {
-        template <class T> class ObjectBuilder;
-    }
+        template <typename TDerived, typename T>
+        class OSMObjectBuilder;
+    } // namespace builder
 
     /**
      * List of node references (id and location) in a way.
@@ -55,7 +58,11 @@ namespace osmium {
 
         static constexpr osmium::item_type itemtype = osmium::item_type::way_node_list;
 
-        WayNodeList():
+        constexpr static bool is_compatible_to(osmium::item_type t) noexcept {
+            return t == itemtype;
+        }
+
+        WayNodeList() noexcept :
             NodeRefList(itemtype) {
         }
 
@@ -65,13 +72,20 @@ namespace osmium {
 
     class Way : public OSMObject {
 
-        friend class osmium::builder::ObjectBuilder<osmium::Way>;
+        template <typename TDerived, typename T>
+        friend class osmium::builder::OSMObjectBuilder;
 
         Way() noexcept :
             OSMObject(sizeof(Way), osmium::item_type::way) {
         }
 
     public:
+
+        static constexpr osmium::item_type itemtype = osmium::item_type::way;
+
+        constexpr static bool is_compatible_to(osmium::item_type t) noexcept {
+            return t == itemtype;
+        }
 
         WayNodeList& nodes() {
             return osmium::detail::subitem_of_type<WayNodeList>(begin(), end());
@@ -94,18 +108,50 @@ namespace osmium {
         }
 
         /**
-         * Do the nodes in this way form a closed ring?
+         * Checks whether the first and last node in the way have the
+         * same ID. The locations are not checked.
+         *
+         * Complexity: Constant.
+         *
+         * @pre @code !empty() @endcode
          */
-        bool is_closed() const {
+        bool is_closed() const noexcept {
             return nodes().is_closed();
         }
 
-        bool ends_have_same_id() const {
+        /**
+         * Checks whether the first and last node in the way have the
+         * same ID. The locations are not checked.
+         *
+         * Complexity: Constant.
+         *
+         * @pre @code !empty() @endcode
+         */
+        bool ends_have_same_id() const noexcept {
             return nodes().ends_have_same_id();
         }
 
+        /**
+         * Checks whether the first and last node in the way have the
+         * same location. The IDs are not checked.
+         *
+         * Complexity: Constant.
+         *
+         * @pre @code !empty() @endcode
+         * @pre @code front().location() && back().location() @endcode
+         */
         bool ends_have_same_location() const {
             return nodes().ends_have_same_location();
+        }
+
+        /**
+         * Calculate the envelope of this way. If the locations of the nodes
+         * are not set, the resulting box will be invalid.
+         *
+         * Complexity: Linear in the number of nodes.
+         */
+        osmium::Box envelope() const noexcept {
+            return nodes().envelope();
         }
 
     }; // class Way

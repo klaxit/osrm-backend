@@ -3,9 +3,9 @@
 
 /*
 
-This file is part of Osmium (http://osmcode.org/libosmium).
+This file is part of Osmium (https://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2020 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -51,7 +51,7 @@ namespace osmium {
         class RelationMeta {
 
             /// The relation we are assembling.
-            size_t m_relation_offset;
+            size_t m_relation_offset = 0;
 
             /**
              * The number of members still needed before the relation is
@@ -67,9 +67,7 @@ namespace osmium {
              * Initialize an empty RelationMeta. This is needed to zero out
              * relations that have been completed.
              */
-            RelationMeta() noexcept :
-                m_relation_offset(0) {
-            }
+            RelationMeta() noexcept = default;
 
             explicit RelationMeta(size_t relation_offset) noexcept :
                 m_relation_offset(relation_offset) {
@@ -117,8 +115,8 @@ namespace osmium {
          */
         struct has_all_members {
 
-            typedef RelationMeta& argument_type;
-            typedef bool result_type;
+            using argument_type = RelationMeta&;
+            using result_type = bool;
 
             /**
              * @returns true if this relation is complete, false otherwise.

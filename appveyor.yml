@@ -3,11 +3,14 @@ environment:
   - configuration: Release
 #  - configuration: Debug
 
+install:
+  - ps: Install-Product node 6
+
 # scripts that are called at very beginning, before repo cloning
 init:
   - git config --global core.autocrlf input
 
-os: Visual Studio 2015
+os: Visual Studio 2019
 
 # clone directory
 clone_folder: c:\projects\osrm
@@ -17,28 +20,17 @@ platform: x64
 build_script:
   - CALL appveyor-build.bat
 
-test: off
+before_test:
+  - node --version
+  - npm --version
+  - npm install --ignore-scripts
+  - npm link --ignore-scripts
+  - SET PATH=%CD%\osrm-deps\lib;%PATH%
+  - SET OSRM_BUILD_DIR=build\%Configuration%
+# TODO tests fail with "JavaScript heap out of memory", need a better host?
+#  - npm test
 
-artifacts:
-  - path: osrm_Release.zip
-    name: osrm_Release.zip
-#  - path: osrm_Debug.zip
-#    name: osrm_Debug.zip
+branches:
+  only:
+    - master
 
-deploy:
-  provider: FTP
-  server:
-    secure: ef7oiQTTXFGt8NdNiOHm/uRFVrUttzyFbIlnaeHhQvw=
-  username:
-    secure: Bw+Se2GTJxA6+GtRkEc//tQSBHOuFIuJHBjFwR9cD+8=
-  password:
-    secure: eqwESZqxMXC/j5mOCpaXuw==
-  folder: /
-  enable_ssl: true
-  active_mode: false
-
-# notifications:
-#   - provider: HipChat
-#     auth_token:
-#       secure: boLE7BjcahdIUxv9jkN7U3F8iOASF+MkhtctlVoWJoo=
-#     room: Directions

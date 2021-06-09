@@ -3,9 +3,9 @@
 
 /*
 
-This file is part of Osmium (http://osmcode.org/libosmium).
+This file is part of Osmium (https://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2020 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -33,16 +33,15 @@ DEALINGS IN THE SOFTWARE.
 
 */
 
+#include <osmium/io/error.hpp>
+#include <osmium/io/file_compression.hpp>
+#include <osmium/io/file_format.hpp>
+#include <osmium/util/options.hpp>
+
 #include <cstddef>
-#include <stdexcept>
 #include <sstream>
 #include <string>
 #include <vector>
-
-#include <osmium/io/file_format.hpp>
-#include <osmium/io/file_compression.hpp>
-#include <osmium/util/options.hpp>
-#include <osmium/util/compatibility.hpp>
 
 namespace osmium {
 
@@ -70,22 +69,22 @@ namespace osmium {
          *
          * If the filename is empty or "-", this means stdin or stdout is used.
          */
-        class File : public osmium::util::Options {
+        class File : public osmium::Options {
 
         private:
 
-            std::string m_filename;
+            std::string m_filename{};
 
-            const char* m_buffer;
-            size_t m_buffer_size;
+            const char* m_buffer = nullptr;
+            size_t m_buffer_size = 0;
 
             std::string m_format_string;
 
-            file_format m_file_format {file_format::unknown};
+            file_format m_file_format = file_format::unknown;
 
-            file_compression m_file_compression {file_compression::none};
+            file_compression m_file_compression = file_compression::none;
 
-            bool m_has_multiple_object_versions {false};
+            bool m_has_multiple_object_versions = false;
 
         public:
 
@@ -101,12 +100,9 @@ namespace osmium {
              *               empty the format will be deduced from the suffix
              *               of the filename.
              */
-            explicit File(const std::string& filename = "", const std::string& format = "") :
-                Options(),
-                m_filename(filename),
-                m_buffer(nullptr),
-                m_buffer_size(0),
-                m_format_string(format) {
+            explicit File(std::string filename = "", std::string format = "") :
+                m_filename(std::move(filename)),
+                m_format_string(std::move(format)) {
 
                 // stdin/stdout
                 if (m_filename == "-") {
@@ -114,15 +110,15 @@ namespace osmium {
                 }
 
                 // if filename is a URL, default to XML format
-                std::string protocol = m_filename.substr(0, m_filename.find_first_of(':'));
+                const std::string protocol{m_filename.substr(0, m_filename.find_first_of(':'))};
                 if (protocol == "http" || protocol == "https") {
                     m_file_format = file_format::xml;
                 }
 
-                if (format.empty()) {
+                if (m_format_string.empty()) {
                     detect_format_from_suffix(m_filename);
                 } else {
-                    parse_format(format);
+                    parse_format(m_format_string);
                 }
             }
 
@@ -136,23 +132,13 @@ namespace osmium {
              *               parse_format() function for details.
              */
             explicit File(const char* buffer, size_t size, const std::string& format = "") :
-                Options(),
-                m_filename(),
                 m_buffer(buffer),
                 m_buffer_size(size),
                 m_format_string(format) {
-                if (format != "") {
+                if (!format.empty()) {
                     parse_format(format);
                 }
             }
-
-            File(const File&) = default;
-            File& operator=(const File&) = default;
-
-            File(File&&) = default;
-            File& operator=(File&&) = default;
-
-            ~File() = default;
 
             const char* buffer() const noexcept {
                 return m_buffer;
@@ -173,11 +159,11 @@ namespace osmium {
                 }
 
                 for (auto& option : options) {
-                    size_t pos = option.find_first_of('=');
+                    const size_t pos = option.find_first_of('=');
                     if (pos == std::string::npos) {
                         set(option, true);
                     } else {
-                        std::string value = option.substr(pos+1);
+                        std::string value{option.substr(pos + 1)};
                         option.erase(pos);
                         set(option, value);
                     }
@@ -193,7 +179,9 @@ namespace osmium {
             void detect_format_from_suffix(const std::string& name) {
                 std::vector<std::string> suffixes = detail::split(name, '.');
 
-                if (suffixes.empty()) return;
+                if (suffixes.empty()) {
+                    return;
+                }
 
                 // if the last suffix is one of a known set of compressions,
                 // set that compression
@@ -205,7 +193,9 @@ namespace osmium {
                     suffixes.pop_back();
                 }
 
-                if (suffixes.empty()) return;
+                if (suffixes.empty()) {
+                    return;
+                }
 
                 // if the last suffix is one of a known set of formats,
                 // set that format
@@ -232,19 +222,30 @@ namespace osmium {
                 } else if (suffixes.back() == "debug") {
                     m_file_format = file_format::debug;
                     suffixes.pop_back();
+                } else if (suffixes.back() == "blackhole") {
+                    m_file_format = file_format::blackhole;
+                    suffixes.pop_back();
                 }
 
-                if (suffixes.empty()) return;
+                if (suffixes.empty()) {
+                    return;
+                }
 
                 if (suffixes.back() == "osm") {
-                    if (m_file_format == file_format::unknown) m_file_format = file_format::xml;
+                    if (m_file_format == file_format::unknown) {
+                        m_file_format = file_format::xml;
+                    }
                     suffixes.pop_back();
                 } else if (suffixes.back() == "osh") {
-                    if (m_file_format == file_format::unknown) m_file_format = file_format::xml;
+                    if (m_file_format == file_format::unknown) {
+                        m_file_format = file_format::xml;
+                    }
                     m_has_multiple_object_versions = true;
                     suffixes.pop_back();
                 } else if (suffixes.back() == "osc") {
-                    if (m_file_format == file_format::unknown) m_file_format = file_format::xml;
+                    if (m_file_format == file_format::unknown) {
+                        m_file_format = file_format::xml;
+                    }
                     m_has_multiple_object_versions = true;
                     set("xml_change_format", true);
                     suffixes.pop_back();
@@ -255,12 +256,12 @@ namespace osmium {
              * Check file format etc. for consistency and throw exception if
              * there is a problem.
              *
-             * @throws std::runtime_error
+             * @throws osmium::io_error
              */
-            void check() const {
+            const File& check() const {
                 if (m_file_format == file_format::unknown) {
-                    std::string msg = "Could not detect file format";
-                    if (!m_format_string.empty())  {
+                    std::string msg{"Could not detect file format"};
+                    if (!m_format_string.empty()) {
                         msg += " from format string '";
                         msg += m_format_string;
                         msg += "'";
@@ -273,8 +274,9 @@ namespace osmium {
                         msg += "'";
                     }
                     msg += ".";
-                    throw std::runtime_error(msg);
+                    throw io_error{msg};
                 }
+                return *this;
             }
 
             file_format format() const noexcept {

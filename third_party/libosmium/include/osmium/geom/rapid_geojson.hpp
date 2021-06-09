@@ -3,9 +3,9 @@
 
 /*
 
-This file is part of Osmium (http://osmcode.org/libosmium).
+This file is part of Osmium (https://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2020 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -36,6 +36,8 @@ DEALINGS IN THE SOFTWARE.
 #include <osmium/geom/coordinates.hpp>
 #include <osmium/geom/factory.hpp>
 
+#include <cstddef>
+
 namespace osmium {
 
     namespace geom {
@@ -46,20 +48,20 @@ namespace osmium {
              * A geometry factory implementation that can be used with the
              * RapidJSON (https://github.com/miloyip/rapidjson) JSON writer.
              */
-            template <class TWriter>
+            template <typename TWriter>
             class RapidGeoJSONFactoryImpl {
 
                 TWriter* m_writer;
 
             public:
 
-                typedef void point_type;
-                typedef void linestring_type;
-                typedef void polygon_type;
-                typedef void multipolygon_type;
-                typedef void ring_type;
+                using point_type        = void;
+                using linestring_type   = void;
+                using polygon_type      = void;
+                using multipolygon_type = void;
+                using ring_type         = void;
 
-                RapidGeoJSONFactoryImpl(TWriter& writer) :
+                RapidGeoJSONFactoryImpl(int /* srid */, TWriter& writer) :
                     m_writer(&writer) {
                 }
 
@@ -180,7 +182,7 @@ namespace osmium {
 
         } // namespace detail
 
-        template <class TWriter, class TProjection = IdentityProjection>
+        template <typename TWriter, typename TProjection = IdentityProjection>
         using RapidGeoJSONFactory = GeometryFactory<detail::RapidGeoJSONFactoryImpl<TWriter>, TProjection>;
 
     } // namespace geom

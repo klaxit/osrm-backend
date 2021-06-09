@@ -6,6 +6,11 @@
 # TODO: This script should be integrated with cmake in some way...
 #
 
+# If these are set, the wrong compiler is used by iwyu and there will be
+# errors about missing includes.
+unset CC
+unset CXX
+
 cmdline="iwyu -Xiwyu --mapping_file=osmium.imp -std=c++11 -I include"
 
 log=build/iwyu.log
@@ -16,7 +21,7 @@ echo "INCLUDE WHAT YOU USE REPORT:" >$log
 
 allok=yes
 
-for file in `find include/osmium -name \*.hpp`; do
+for file in `find include/osmium -name \*.hpp | sort`; do
     mkdir -p `dirname build/check_reports/$file`
     ifile="build/check_reports/${file%.hpp}.iwyu"
     $cmdline $file >$ifile 2>&1

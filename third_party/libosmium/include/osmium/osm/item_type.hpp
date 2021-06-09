@@ -3,9 +3,9 @@
 
 /*
 
-This file is part of Osmium (http://osmcode.org/libosmium).
+This file is part of Osmium (https://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2020 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -53,33 +53,40 @@ namespace osmium {
         relation_member_list                   = 0x13,
         relation_member_list_with_full_members = 0x23,
         outer_ring                             = 0x40,
-        inner_ring                             = 0x41
+        inner_ring                             = 0x41,
+        changeset_discussion                   = 0x80
 
     }; // enum class item_type
 
     /**
      * Return item_type for index:
      * 0 -> node, 1 -> way, 2 -> relation
+     *
+     * @param i Index. Must be between 0 and 2.
+     *
+     * @returns Item type.
      */
     inline item_type nwr_index_to_item_type(unsigned int i) noexcept {
         assert(i <= 2);
-        return item_type(i+1);
+        return item_type(i + 1);
     }
 
     /**
      * Return index for item_type:
      * node -> 0, way -> 1, relation -> 2
+     *
+     * @param type Item type. Must be node, way, or relation.
+     *
+     * @returns Index.
      */
     inline unsigned int item_type_to_nwr_index(item_type type) noexcept {
-        unsigned int i = static_cast<unsigned int>(type);
+        const auto i = static_cast<unsigned int>(type);
         assert(i >= 1 && i <= 3);
         return i - 1;
     }
 
     inline item_type char_to_item_type(const char c) noexcept {
         switch (c) {
-            case 'X':
-                return item_type::undefined;
             case 'n':
                 return item_type::node;
             case 'w':
@@ -102,18 +109,16 @@ namespace osmium {
                 return item_type::outer_ring;
             case 'I':
                 return item_type::inner_ring;
-            default:
-                return item_type::undefined;
+            case 'D':
+                return item_type::changeset_discussion;
+            default: // 'X'
+                break;
         }
+        return item_type::undefined;
     }
 
-// avoid g++ false positive
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wreturn-type"
     inline char item_type_to_char(const item_type type) noexcept {
         switch (type) {
-            case item_type::undefined:
-                return 'X';
             case item_type::node:
                 return 'n';
             case item_type::way:
@@ -136,13 +141,16 @@ namespace osmium {
                 return 'O';
             case item_type::inner_ring:
                 return 'I';
+            case item_type::changeset_discussion:
+                return 'D';
+            default: // item_type::undefined
+                break;
         }
+        return 'X';
     }
 
     inline const char* item_type_to_name(const item_type type) noexcept {
         switch (type) {
-            case item_type::undefined:
-                return "undefined";
             case item_type::node:
                 return "node";
             case item_type::way:
@@ -165,9 +173,13 @@ namespace osmium {
                 return "outer_ring";
             case item_type::inner_ring:
                 return "inner_ring";
+            case item_type::changeset_discussion:
+                return "changeset_discussion";
+            default: // item_type::undefined
+                break;
         }
+        return "undefined";
     }
-#pragma GCC diagnostic pop
 
     template <typename TChar, typename TTraits>
     inline std::basic_ostream<TChar, TTraits>& operator<<(std::basic_ostream<TChar, TTraits>& out, const item_type item_type) {

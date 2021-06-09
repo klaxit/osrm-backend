@@ -3,9 +3,9 @@
 
 /*
 
-This file is part of Osmium (http://osmcode.org/libosmium).
+This file is part of Osmium (https://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2020 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -33,10 +33,11 @@ DEALINGS IN THE SOFTWARE.
 
 */
 
-#include <algorithm>
-#include <utility>
-
 #include <osmium/osm/tag.hpp>
+
+#include <algorithm>
+#include <functional>
+#include <utility> // IWYU pragma: keep
 
 namespace osmium {
 
@@ -45,19 +46,19 @@ namespace osmium {
      */
     namespace tags {
 
-        template <class TFilter>
-        inline bool match_any_of(const osmium::TagList& tag_list, TFilter&& filter) {
-            return std::any_of(tag_list.cbegin(), tag_list.cend(), std::forward<TFilter>(filter));
+        template <typename TFilter>
+        inline bool match_any_of(const osmium::TagList& tag_list, const TFilter& filter) {
+            return std::any_of(tag_list.cbegin(), tag_list.cend(), std::cref(filter));
         }
 
-        template <class TFilter>
-        inline bool match_all_of(const osmium::TagList& tag_list, TFilter&& filter) {
-            return std::all_of(tag_list.cbegin(), tag_list.cend(), std::forward<TFilter>(filter));
+        template <typename TFilter>
+        inline bool match_all_of(const osmium::TagList& tag_list, const TFilter& filter) {
+            return std::all_of(tag_list.cbegin(), tag_list.cend(), std::cref(filter));
         }
 
-        template <class TFilter>
-        inline bool match_none_of(const osmium::TagList& tag_list, TFilter&& filter) {
-            return std::none_of(tag_list.cbegin(), tag_list.cend(), std::forward<TFilter>(filter));
+        template <typename TFilter>
+        inline bool match_none_of(const osmium::TagList& tag_list, const TFilter& filter) {
+            return std::none_of(tag_list.cbegin(), tag_list.cend(), std::cref(filter));
         }
 
     } // namespace tags

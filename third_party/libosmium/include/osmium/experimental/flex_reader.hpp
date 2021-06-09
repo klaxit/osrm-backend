@@ -3,9 +3,9 @@
 
 /*
 
-This file is part of Osmium (http://osmcode.org/libosmium).
+This file is part of Osmium (https://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2020 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -33,10 +33,19 @@ DEALINGS IN THE SOFTWARE.
 
 */
 
-#include <osmium/handler/node_locations_for_ways.hpp>
-#include <osmium/visitor.hpp>
-#include <osmium/area/multipolygon_collector.hpp>
 #include <osmium/area/assembler.hpp>
+#include <osmium/area/multipolygon_collector.hpp>
+#include <osmium/handler/node_locations_for_ways.hpp> // IWYU pragma: keep
+#include <osmium/io/file.hpp>
+#include <osmium/io/header.hpp>
+#include <osmium/io/reader.hpp>
+#include <osmium/memory/buffer.hpp>
+#include <osmium/osm/entity_bits.hpp>
+#include <osmium/visitor.hpp>
+
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace osmium {
 
@@ -45,7 +54,7 @@ namespace osmium {
      */
     namespace experimental {
 
-        template <class TLocationHandler>
+        template <typename TLocationHandler>
         class FlexReader {
 
             bool m_with_areas;
@@ -69,7 +78,7 @@ namespace osmium {
             {
                 m_location_handler.ignore_errors();
                 if (m_with_areas) {
-                    osmium::io::Reader reader(file, osmium::osm_entity_bits::relation);
+                    osmium::io::Reader reader{file, osmium::osm_entity_bits::relation};
                     m_collector.read_relations(reader);
                     reader.close();
                 }
@@ -104,7 +113,7 @@ namespace osmium {
                 return buffer;
             }
 
-            osmium::io::Header header() const {
+            osmium::io::Header header() {
                 return m_reader.header();
             }
 

@@ -3,9 +3,9 @@
 
 /*
 
-This file is part of Osmium (http://osmcode.org/libosmium).
+This file is part of Osmium (https://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2020 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -35,16 +35,13 @@ DEALINGS IN THE SOFTWARE.
 
 #include <algorithm>
 #include <cassert>
-#include <cmath>
 #include <cstdio>
 #include <iterator>
 #include <string>
 
 namespace osmium {
 
-    namespace util {
-
-        constexpr int max_double_length = 20; // should fit any double
+    inline namespace util {
 
         /**
          * Write double to iterator, removing superfluous '0' characters at
@@ -59,6 +56,10 @@ namespace osmium {
         inline T double2string(T iterator, double value, int precision) {
             assert(precision <= 17);
 
+            enum {
+                max_double_length = 20 // should fit decimal representation of any double
+            };
+
             char buffer[max_double_length];
 
 #ifndef _MSC_VER
@@ -68,8 +69,12 @@ namespace osmium {
 #endif
             assert(len > 0 && len < max_double_length);
 
-            while (buffer[len-1] == '0') --len;
-            if (buffer[len-1] == '.') --len;
+            while (buffer[len - 1] == '0') {
+                --len;
+            }
+            if (buffer[len - 1] == '.') {
+                --len;
+            }
 
             return std::copy_n(buffer, len, iterator);
         }

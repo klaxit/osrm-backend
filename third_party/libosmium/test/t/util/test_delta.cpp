@@ -1,68 +1,89 @@
 #include "catch.hpp"
 
-#include <vector>
-
 #include <osmium/util/delta.hpp>
 
-TEST_CASE("delta encode") {
+#include <cstdint>
+#include <vector>
 
-    osmium::util::DeltaEncode<int> x;
+TEST_CASE("delta encode int") {
+    osmium::DeltaEncode<int> x;
 
-    SECTION("int") {
-        REQUIRE(x.update(17) == 17);
-        REQUIRE(x.update(10) == -7);
-    }
-
+    REQUIRE(x.update(17) == 17);
+    REQUIRE(x.value() == 17);
+    REQUIRE(x.update(10) == -7);
+    REQUIRE(x.value() == 10);
+    REQUIRE(x.update(-10) == -20);
+    REQUIRE(x.value() == -10);
+    x.clear();
+    REQUIRE(x.value() == 0);
 }
 
-TEST_CASE("delta decode") {
+TEST_CASE("delta encode int with int32") {
+    osmium::DeltaEncode<int, int32_t> x;
 
-    osmium::util::DeltaDecode<int> x;
+    REQUIRE(x.update(17) == 17);
+    REQUIRE(x.value() == 17);
+    REQUIRE(x.update(10) == -7);
+    REQUIRE(x.value() == 10);
+    REQUIRE(x.update(-10) == -20);
+    REQUIRE(x.value() == -10);
+    x.clear();
+    REQUIRE(x.value() == 0);
+}
 
-    SECTION("int") {
-        REQUIRE(x.update(17) == 17);
-        REQUIRE(x.update(10) == 27);
-    }
+TEST_CASE("delta decode int") {
+    osmium::DeltaDecode<int> x;
 
+    REQUIRE(x.update(17) == 17);
+    REQUIRE(x.update(10) == 27);
+    REQUIRE(x.update(-40) == -13);
+    x.clear();
+    REQUIRE(x.update(17) == 17);
+}
+
+TEST_CASE("delta decode int with int32") {
+    osmium::DeltaDecode<int, int32_t> x;
+
+    REQUIRE(x.update(17) == 17);
+    REQUIRE(x.update(10) == 27);
+    REQUIRE(x.update(-40) == -13);
+    x.clear();
+    REQUIRE(x.update(17) == 17);
+}
+
+TEST_CASE("delta encode unsigned int") {
+    osmium::DeltaEncode<unsigned int> x;
+
+    REQUIRE(x.update(17) == 17);
+    REQUIRE(x.update(10) == -7);
+    REQUIRE(x.update(0) == -10);
+}
+
+TEST_CASE("delta decode unsigned int") {
+    osmium::DeltaDecode<unsigned int> x;
+
+    REQUIRE(x.update(17) == 17);
+    REQUIRE(x.update(10) == 27);
+    REQUIRE(x.update(-15) == 12);
 }
 
 TEST_CASE("delta encode and decode") {
+    const std::vector<int> a = { 5, -9, 22, 13, 0, 23 };
 
-    std::vector<int> a = { 5, -9, 22, 13, 0, 23 };
-
-    osmium::util::DeltaEncode<int> de;
+    osmium::DeltaEncode<int, int> de;
     std::vector<int> b;
+    b.reserve(a.size());
     for (int x : a) {
         b.push_back(de.update(x));
     }
 
-    osmium::util::DeltaDecode<int> dd;
+    osmium::DeltaDecode<int, int> dd;
     std::vector<int> c;
+    c.reserve(b.size());
     for (int x : b) {
         c.push_back(dd.update(x));
     }
 
-}
-
-TEST_CASE("delta encode iterator") {
-    std::vector<int> data = { 4, 5, 13, 22, 12 };
-
-    auto l = [](std::vector<int>::const_iterator it) -> int {
-        return *it;
-    };
-
-    typedef osmium::util::DeltaEncodeIterator<std::vector<int>::const_iterator, decltype(l), int> it_type;
-    it_type it(data.begin(), data.end(), l);
-    it_type end(data.end(), data.end(), l);
-
-    REQUIRE(*it == 4);
-    ++it;
-    REQUIRE(*it++ == 1);
-    REQUIRE(*it == 8);
-    ++it;
-    REQUIRE(*it++ == 9);
-    REQUIRE(*it == -10);
-    ++it;
-    REQUIRE(it == end);
+    REQUIRE(a == c);
 }
 

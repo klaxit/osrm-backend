@@ -3,9 +3,9 @@
 
 /*
 
-This file is part of Osmium (http://osmcode.org/libosmium).
+This file is part of Osmium (https://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2020 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -33,11 +33,10 @@ DEALINGS IN THE SOFTWARE.
 
 */
 
+#include <osmium/osm/location.hpp>
+
 #include <cassert>
 #include <iosfwd>
-
-#include <osmium/util/compatibility.hpp>
-#include <osmium/osm/location.hpp>
 
 namespace osmium {
 
@@ -49,8 +48,8 @@ namespace osmium {
      */
     class Box {
 
-        osmium::Location m_bottom_left;
-        osmium::Location m_top_right;
+        osmium::Location m_bottom_left{};
+        osmium::Location m_top_right{};
 
     public:
 
@@ -58,13 +57,10 @@ namespace osmium {
          * Create undefined Box. Use the extend() function
          * to add actual bounds.
          */
-        constexpr Box() noexcept :
-            m_bottom_left(),
-            m_top_right() {
-        }
+        constexpr Box() noexcept = default;
 
         /**
-         * Create box from minimum and maximum coordinates.
+         * Create box from minimum and maximum coordinates in WGS84.
          *
          * @pre @code minx <= maxx && miny <= maxy @endcode
          */
@@ -92,23 +88,17 @@ namespace osmium {
             );
         }
 
-        Box(const Box&) = default;
-        Box(Box&&) = default;
-        Box& operator=(const Box&) = default;
-        Box& operator=(Box&&) = default;
-        ~Box() = default;
-
         /**
          * Extend this bounding box by the specified location. If the
-         * location is undefined, the bounding box is unchanged. If
-         * the box is undefined it will only contain the location after
+         * location is invalid, the bounding box is unchanged. If the
+         * box is undefined it will only contain the new location after
          * this call.
          *
          * @param location The location we want to extend the box by.
          * @returns A reference to this box.
          */
         Box& extend(const Location& location) noexcept {
-            if (location) {
+            if (location.valid()) {
                 if (m_bottom_left) {
                     if (location.x() < m_bottom_left.x()) {
                         m_bottom_left.set_x(location.x());
@@ -147,21 +137,21 @@ namespace osmium {
          * Box is defined, ie. contains defined locations.
          */
         explicit constexpr operator bool() const noexcept {
-            return static_cast<bool>(m_bottom_left);
+            return bool(m_bottom_left) && bool(m_top_right);
         }
 
         /**
          * Box is valid, ie. defined and inside usual bounds
          * (-180<=lon<=180, -90<=lat<=90).
          */
-        OSMIUM_CONSTEXPR bool valid() const noexcept {
+        constexpr bool valid() const noexcept {
             return bottom_left().valid() && top_right().valid();
         }
 
         /**
          * Access bottom-left location.
          */
-        OSMIUM_CONSTEXPR Location bottom_left() const noexcept {
+        constexpr Location bottom_left() const noexcept {
             return m_bottom_left;
         }
 
@@ -175,7 +165,7 @@ namespace osmium {
         /**
          * Access top-right location.
          */
-        OSMIUM_CONSTEXPR Location top_right() const noexcept {
+        constexpr Location top_right() const noexcept {
             return m_top_right;
         }
 
@@ -203,6 +193,9 @@ namespace osmium {
         /**
          * Calculate size of the box in square degrees.
          *
+         * Note that this measure isn't very useful if you want to know the
+         * real-world size of the bounding box!
+         *
          * @throws osmium::invalid_location unless all coordinates are valid.
          */
         double size() const {
@@ -216,7 +209,7 @@ namespace osmium {
      * Boxes are equal if both locations are equal. Undefined boxes will
      * compare equal.
      */
-    inline OSMIUM_CONSTEXPR bool operator==(const Box& lhs, const Box& rhs) noexcept {
+    inline constexpr bool operator==(const Box& lhs, const Box& rhs) noexcept {
         return lhs.bottom_left() == rhs.bottom_left() &&
                lhs.top_right() == rhs.top_right();
     }
@@ -230,15 +223,11 @@ namespace osmium {
     template <typename TChar, typename TTraits>
     inline std::basic_ostream<TChar, TTraits>& operator<<(std::basic_ostream<TChar, TTraits>& out, const osmium::Box& box) {
         if (box) {
-            out << '('
-                << box.bottom_left().lon()
-                << ','
-                << box.bottom_left().lat()
-                << ','
-                << box.top_right().lon()
-                << ','
-                << box.top_right().lat()
-                << ')';
+            out << '(';
+            box.bottom_left().as_string_without_check(std::ostream_iterator<char>(out));
+            out << ',';
+            box.top_right().as_string_without_check(std::ostream_iterator<char>(out));
+            out << ')';
         } else {
             out << "(undefined)";
         }

@@ -3,9 +3,9 @@
 
 /*
 
-This file is part of Osmium (http://osmcode.org/libosmium).
+This file is part of Osmium (https://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2020 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -45,6 +45,8 @@ DEALINGS IN THE SOFTWARE.
 
 #include <osmium/io/any_compression.hpp> // IWYU pragma: export
 
+#include <osmium/io/o5m_input.hpp> // IWYU pragma: export
+#include <osmium/io/opl_input.hpp> // IWYU pragma: export
 #include <osmium/io/pbf_input.hpp> // IWYU pragma: export
 #include <osmium/io/xml_input.hpp> // IWYU pragma: export
 

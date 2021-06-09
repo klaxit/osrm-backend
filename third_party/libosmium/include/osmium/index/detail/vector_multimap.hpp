@@ -3,9 +3,9 @@
 
 /*
 
-This file is part of Osmium (http://osmcode.org/libosmium).
+This file is part of Osmium (https://osmcode.org/libosmium).
 
-Copyright 2013-2015 Jochen Topf <jochen@topf.org> and others (see README).
+Copyright 2013-2020 Jochen Topf <jochen@topf.org> and others (see README).
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -33,13 +33,13 @@ DEALINGS IN THE SOFTWARE.
 
 */
 
-#include <algorithm>
-#include <cstddef>
-#include <utility>
-
 #include <osmium/index/index.hpp>
 #include <osmium/index/multimap.hpp>
 #include <osmium/io/detail/read_write.hpp>
+
+#include <algorithm>
+#include <cstddef>
+#include <utility>
 
 namespace osmium {
 
@@ -47,15 +47,15 @@ namespace osmium {
 
         namespace multimap {
 
-            template <typename TId, typename TValue, template<typename...> class TVector>
+            template <typename TId, typename TValue, template <typename...> class TVector>
             class VectorBasedSparseMultimap : public Multimap<TId, TValue> {
 
             public:
 
-                typedef typename std::pair<TId, TValue> element_type;
-                typedef TVector<element_type> vector_type;
-                typedef typename vector_type::iterator iterator;
-                typedef typename vector_type::const_iterator const_iterator;
+                using element_type   = typename std::pair<TId, TValue>;
+                using vector_type    = TVector<element_type>;
+                using iterator       = typename vector_type::iterator;
+                using const_iterator = typename vector_type::const_iterator;
 
             private:
 
@@ -75,9 +75,7 @@ namespace osmium {
                     m_vector(fd) {
                 }
 
-                ~VectorBasedSparseMultimap() = default;
-
-                void set(const TId id, const TValue value) override final {
+                void set(const TId id, const TValue value) final {
                     m_vector.push_back(element_type(id, value));
                 }
 
@@ -105,7 +103,7 @@ namespace osmium {
                     });
                 }
 
-                size_t size() const override final {
+                size_t size() const final {
                     return m_vector.size();
                 }
 
@@ -113,21 +111,21 @@ namespace osmium {
                     return m_vector.size() * sizeof(element_type);
                 }
 
-                size_t used_memory() const override final {
+                size_t used_memory() const final {
                     return sizeof(element_type) * size();
                 }
 
-                void clear() override final {
+                void clear() final {
                     m_vector.clear();
                     m_vector.shrink_to_fit();
                 }
 
-                void sort() override final {
+                void sort() final {
                     std::sort(m_vector.begin(), m_vector.end());
                 }
 
                 void remove(const TId id, const TValue value) {
-                    auto r = get_all(id);
+                    const auto r = get_all(id);
                     for (auto it = r.first; it != r.second; ++it) {
                         if (it->second == value) {
                             it->second = 0;
@@ -147,7 +145,7 @@ namespace osmium {
                     );
                 }
 
-                void dump_as_list(const int fd) override final {
+                void dump_as_list(const int fd) final {
                     osmium::io::detail::reliable_write(fd, reinterpret_cast<const char*>(m_vector.data()), byte_size());
                 }
 
